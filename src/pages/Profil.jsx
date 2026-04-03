@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   User,
@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   ChevronRight,
+  Camera,
 } from 'lucide-react'
 import { format, parseISO, isFuture, isPast } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -94,6 +95,8 @@ export default function Profil() {
     sports: [],
   })
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -205,6 +208,36 @@ export default function Profil() {
       toast.error('Profil konnte nicht gespeichert werden.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Nur Bilder erlaubt (JPG, PNG, etc.)'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Bild darf maximal 5 MB groß sein.'); return }
+
+    setUploadingAvatar(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}/${user.id}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true })
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
+
+      await updateProfile({ avatar_url: publicUrl })
+      await fetchProfile()
+      toast.success('Profilbild gespeichert!')
+    } catch (err) {
+      console.error(err)
+      toast.error('Profilbild konnte nicht hochgeladen werden.')
+    } finally {
+      setUploadingAvatar(false)
+      e.target.value = ''
     }
   }
 
@@ -343,7 +376,26 @@ export default function Profil() {
         ) : (
           /* View mode */
           <div className="flex flex-col sm:flex-row gap-6 items-start">
-            <Avatar name={profile?.name} avatarUrl={profile?.avatar_url} />
+            <div
+              className="relative group cursor-pointer shrink-0"
+              onClick={() => avatarInputRef.current?.click()}
+              title="Profilbild ändern"
+            >
+              <Avatar name={profile?.name} avatarUrl={profile?.avatar_url} />
+              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploadingAvatar
+                  ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <Camera className="w-6 h-6 text-white" />
+                }
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-start gap-4 mb-4">
