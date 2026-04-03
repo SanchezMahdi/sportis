@@ -191,14 +191,18 @@ export default function SessionDetail() {
           filter: `session_id=eq.${id}`,
         },
         async (payload) => {
-          // Fetch the full message with user info
           const { data } = await supabase
             .from('messages')
             .select('*, user:users(id, name, avatar_url)')
             .eq('id', payload.new.id)
             .single()
           if (data) {
-            setMessages((prev) => [...prev, data])
+            setMessages((prev) => {
+              // Optimistic-Nachricht entfernen und echte hinzufügen (kein Duplikat)
+              const withoutOptimistic = prev.filter((m) => !String(m.id).startsWith('optimistic-'))
+              if (withoutOptimistic.some((m) => m.id === data.id)) return withoutOptimistic
+              return [...withoutOptimistic, data]
+            })
           }
         }
       )
@@ -281,8 +285,7 @@ export default function SessionDetail() {
         text,
       })
       if (error) throw error
-      // Echte Nachrichten nachladen um optimistic zu ersetzen
-      await fetchMessages()
+      // Realtime ersetzt die optimistic-Nachricht – kein fetchMessages nötig
     } catch (err) {
       console.error('Nachricht konnte nicht gesendet werden:', err)
       toast.error('Nachricht konnte nicht gesendet werden.')
