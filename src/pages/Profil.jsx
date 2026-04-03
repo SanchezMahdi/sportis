@@ -9,15 +9,13 @@ import {
   Plus,
   Calendar,
   Clock,
-  ChevronRight,
   Camera,
 } from 'lucide-react'
-import { format, parseISO, isFuture, isPast } from 'date-fns'
-import { de } from 'date-fns/locale'
+import { parseISO, isFuture, isPast } from 'date-fns'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORTARTEN, SPORT_EMOJIS, SKILL_COLORS, GENDER_FILTERS } from '../lib/constants'
+import { SPORTARTEN, SPORT_EMOJIS } from '../lib/constants'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SessionCard from '../components/SessionCard'
 
@@ -219,22 +217,30 @@ export default function Profil() {
 
     setUploadingAvatar(true)
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${user.id}/${user.id}.${fileExt}`
+      const fileExt = file.name.split('.').pop().toLowerCase()
+      const fileName = `avatar-${user.id}.${fileExt}`
+
+      // Erst versuchen zu löschen (ignoriere Fehler)
+      await supabase.storage.from('avatars').remove([fileName])
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true })
-      if (uploadError) throw uploadError
+        .upload(fileName, file)
+
+      if (uploadError) {
+        console.error('Upload Fehler:', uploadError)
+        toast.error(`Upload fehlgeschlagen: ${uploadError.message}`)
+        return
+      }
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
 
-      await updateProfile({ avatar_url: publicUrl })
+      await updateProfile({ avatar_url: `${publicUrl}?t=${Date.now()}` })
       await fetchProfile()
       toast.success('Profilbild gespeichert!')
     } catch (err) {
-      console.error(err)
-      toast.error('Profilbild konnte nicht hochgeladen werden.')
+      console.error('Avatar Fehler:', err)
+      toast.error(`Fehler: ${err.message}`)
     } finally {
       setUploadingAvatar(false)
       e.target.value = ''
