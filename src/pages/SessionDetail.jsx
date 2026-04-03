@@ -12,13 +12,15 @@ import {
   Clock,
   Check,
   Trash2,
+  Pencil,
+  X,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORT_EMOJIS, SKILL_COLORS } from '../lib/constants'
+import { SPORT_EMOJIS, SKILL_COLORS, SPORTARTEN, SKILL_LEVELS, GENDER_FILTERS } from '../lib/constants'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 function Avatar({ name, avatarUrl, size = 'md' }) {
@@ -90,6 +92,9 @@ export default function SessionDetail() {
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState({})
+  const [saving, setSaving] = useState(false)
 
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
@@ -279,6 +284,57 @@ export default function SessionDetail() {
     })
   }
 
+  const handleEditOpen = () => {
+    setEditForm({
+      title: session.title,
+      sport: session.sport,
+      date: session.date,
+      time: session.time?.slice(0, 5) || '',
+      location: session.location,
+      address: session.address || '',
+      max_players: session.max_players,
+      gender_filter: session.gender_filter,
+      skill_level: session.skill_level,
+      description: session.description || '',
+      equipment: session.equipment,
+    })
+    setIsEditing(true)
+  }
+
+  const handleUpdateSession = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          title: editForm.title.trim(),
+          sport: editForm.sport,
+          date: editForm.date,
+          time: editForm.time,
+          location: editForm.location.trim(),
+          address: editForm.address.trim() || null,
+          max_players: parseInt(editForm.max_players),
+          gender_filter: editForm.gender_filter,
+          skill_level: editForm.skill_level,
+          description: editForm.description.trim() || null,
+          equipment: editForm.equipment,
+        })
+        .eq('id', id)
+        .eq('creator_id', user.id)
+
+      if (error) throw error
+      toast.success('Session erfolgreich aktualisiert!')
+      setIsEditing(false)
+      await fetchSession()
+    } catch (err) {
+      console.error('Fehler beim Speichern:', err)
+      toast.error('Session konnte nicht gespeichert werden.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDeleteSession = async () => {
     if (!window.confirm('Session wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return
 
@@ -301,6 +357,8 @@ export default function SessionDetail() {
   if (loading) return <LoadingSpinner fullScreen />
   if (!session) return null
 
+  const inputClass = 'w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors'
+
   const emoji = SPORT_EMOJIS[session.sport] || '🏃'
   const skillColorClass = SKILL_COLORS[session.skill_level] || 'bg-gray-500'
 
@@ -314,6 +372,100 @@ export default function SessionDetail() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      {/* Edit Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-card border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-white font-bold text-xl">Session bearbeiten</h2>
+              <button onClick={() => setIsEditing(false)} className="text-muted hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSession} className="p-6 flex flex-col gap-5">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-white text-sm font-medium">Titel <span className="text-primary">*</span></label>
+                <input type="text" value={editForm.title} onChange={(e) => setEditForm(p => ({ ...p, title: e.target.value }))} className={inputClass} maxLength={100} required />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-white text-sm font-medium">Sportart <span className="text-primary">*</span></label>
+                <select value={editForm.sport} onChange={(e) => setEditForm(p => ({ ...p, sport: e.target.value }))} className={inputClass} required>
+                  {SPORTARTEN.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-sm font-medium">Datum <span className="text-primary">*</span></label>
+                  <input type="date" value={editForm.date} onChange={(e) => setEditForm(p => ({ ...p, date: e.target.value }))} className={`${inputClass} [color-scheme:dark]`} required />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-sm font-medium">Uhrzeit <span className="text-primary">*</span></label>
+                  <input type="time" value={editForm.time} onChange={(e) => setEditForm(p => ({ ...p, time: e.target.value }))} className={`${inputClass} [color-scheme:dark]`} required />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-white text-sm font-medium">Ort <span className="text-primary">*</span></label>
+                <input type="text" value={editForm.location} onChange={(e) => setEditForm(p => ({ ...p, location: e.target.value }))} className={inputClass} required />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-white text-sm font-medium">Genaue Adresse <span className="text-muted font-normal text-xs">(optional)</span></label>
+                <input type="text" value={editForm.address} onChange={(e) => setEditForm(p => ({ ...p, address: e.target.value }))} className={inputClass} />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-sm font-medium">Max. Spieler <span className="text-primary">*</span></label>
+                  <input type="number" min={2} max={100} value={editForm.max_players} onChange={(e) => setEditForm(p => ({ ...p, max_players: e.target.value }))} className={inputClass} required />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-sm font-medium">Geschlecht</label>
+                  <select value={editForm.gender_filter} onChange={(e) => setEditForm(p => ({ ...p, gender_filter: e.target.value }))} className={inputClass}>
+                    {GENDER_FILTERS.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-white text-sm font-medium">Level</label>
+                  <select value={editForm.skill_level} onChange={(e) => setEditForm(p => ({ ...p, skill_level: e.target.value }))} className={inputClass}>
+                    {SKILL_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-white text-sm font-medium">Beschreibung</label>
+                <textarea value={editForm.description} onChange={(e) => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} maxLength={1000} className={`${inputClass} resize-none`} />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-dark rounded-xl border border-white/10">
+                <p className="text-white text-sm font-medium">Ausrüstung vorhanden?</p>
+                <button type="button" onClick={() => setEditForm(p => ({ ...p, equipment: !p.equipment }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editForm.equipment ? 'bg-primary' : 'bg-white/20'}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editForm.equipment ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={saving}
+                  className="flex-1 flex items-center justify-center gap-2 bg-primary text-dark font-bold py-3 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50">
+                  {saving ? <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" /> : <Check className="w-4 h-4" />}
+                  {saving ? 'Wird gespeichert...' : 'Speichern'}
+                </button>
+                <button type="button" onClick={() => setIsEditing(false)}
+                  className="px-6 py-3 border border-white/20 text-white font-bold rounded-xl hover:border-white/40 transition-colors">
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Back button */}
       <button
         onClick={() => navigate(-1)}
@@ -431,13 +583,22 @@ export default function SessionDetail() {
               </button>
 
               {isCreator && (
-                <button
-                  onClick={handleDeleteSession}
-                  className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Session löschen
-                </button>
+                <>
+                  <button
+                    onClick={handleEditOpen}
+                    className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Bearbeiten
+                  </button>
+                  <button
+                    onClick={handleDeleteSession}
+                    className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Session löschen
+                  </button>
+                </>
               )}
             </div>
           </div>
