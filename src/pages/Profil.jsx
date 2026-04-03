@@ -209,6 +209,29 @@ export default function Profil() {
     }
   }
 
+  const handleAvatarRemove = async () => {
+    if (!profile?.avatar_url) return
+    if (!window.confirm('Profilbild wirklich entfernen?')) return
+    setUploadingAvatar(true)
+    try {
+      // Alle möglichen Dateiendungen versuchen zu löschen
+      const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+      await Promise.allSettled(
+        extensions.map((ext) =>
+          supabase.storage.from('avatars').remove([`avatar-${user.id}.${ext}`])
+        )
+      )
+      await updateProfile({ avatar_url: null })
+      await fetchProfile()
+      toast.success('Profilbild entfernt.')
+    } catch (err) {
+      console.error(err)
+      toast.error('Profilbild konnte nicht entfernt werden.')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -382,25 +405,36 @@ export default function Profil() {
         ) : (
           /* View mode */
           <div className="flex flex-col sm:flex-row gap-6 items-start">
-            <div
-              className="relative group cursor-pointer shrink-0"
-              onClick={() => avatarInputRef.current?.click()}
-              title="Profilbild ändern"
-            >
-              <Avatar name={profile?.name} avatarUrl={profile?.avatar_url} />
-              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                {uploadingAvatar
-                  ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <Camera className="w-6 h-6 text-white" />
-                }
+            <div className="relative shrink-0 flex flex-col items-center gap-2">
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => avatarInputRef.current?.click()}
+                title="Profilbild ändern"
+              >
+                <Avatar name={profile?.name} avatarUrl={profile?.avatar_url} />
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {uploadingAvatar
+                    ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Camera className="w-6 h-6 text-white" />
+                  }
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
               </div>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
+              {profile?.avatar_url && (
+                <button
+                  onClick={handleAvatarRemove}
+                  disabled={uploadingAvatar}
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                >
+                  Bild entfernen
+                </button>
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
