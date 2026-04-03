@@ -14,6 +14,8 @@ import {
   Trash2,
   Pencil,
   X,
+  UserX,
+  Flag,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -95,6 +97,9 @@ export default function SessionDetail() {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reporting, setReporting] = useState(false)
 
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
@@ -258,21 +263,73 @@ export default function SessionDetail() {
     const text = newMessage.trim()
     setNewMessage('')
 
+    // Optimistic update – sofort anzeigen ohne auf Realtime zu warten
+    const optimistic = {
+      id: `optimistic-${Date.now()}`,
+      session_id: id,
+      user_id: user.id,
+      text,
+      created_at: new Date().toISOString(),
+      user: { id: user.id, name: user.user_metadata?.name || user.email, avatar_url: null },
+    }
+    setMessages((prev) => [...prev, optimistic])
+
     try {
       const { error } = await supabase.from('messages').insert({
         session_id: id,
         user_id: user.id,
         text,
       })
-
       if (error) throw error
+      // Echte Nachrichten nachladen um optimistic zu ersetzen
+      await fetchMessages()
     } catch (err) {
       console.error('Nachricht konnte nicht gesendet werden:', err)
       toast.error('Nachricht konnte nicht gesendet werden.')
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
       setNewMessage(text)
     } finally {
       setSending(false)
       chatInputRef.current?.focus()
+    }
+  }
+
+  const handleRemoveParticipant = async (userId) => {
+    if (!window.confirm('Teilnehmer:in wirklich entfernen?')) return
+    try {
+      const { error } = await supabase
+        .from('session_participants')
+        .delete()
+        .eq('session_id', id)
+        .eq('user_id', userId)
+      if (error) throw error
+      toast.success('Teilnehmer:in wurde entfernt.')
+      await fetchParticipants()
+    } catch (err) {
+      console.error(err)
+      toast.error('Fehler beim Entfernen.')
+    }
+  }
+
+  const handleReport = async () => {
+    if (!reportReason) { toast.error('Bitte wähle einen Grund aus.'); return }
+    setReporting(true)
+    try {
+      const { error } = await supabase.from('reports').insert({
+        reporter_id: user.id,
+        reported_user_id: reportTarget.id,
+        session_id: id,
+        reason: reportReason,
+      })
+      if (error) throw error
+      toast.success('Meldung wurde eingereicht. Danke!')
+      setReportTarget(null)
+      setReportReason('')
+    } catch (err) {
+      console.error(err)
+      toast.error('Meldung konnte nicht gesendet werden.')
+    } finally {
+      setReporting(false)
     }
   }
 
@@ -372,6 +429,45 @@ export default function SessionDetail() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      {/* Report Modal */}
+      {reportTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-card border border-white/10 rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-white font-bold text-lg">Person melden</h2>
+              <button onClick={() => setReportTarget(null)} className="text-muted hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-muted text-sm mb-4">
+              Du meldest: <span className="text-white font-medium">{reportTarget.name}</span>
+            </p>
+            <div className="flex flex-col gap-2 mb-6">
+              {['Beleidigung / Harassment', 'No-Show (nicht erschienen)', 'Unangemessenes Verhalten', 'Fake-Profil', 'Sonstiges'].map((reason) => (
+                <label key={reason} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${reportReason === reason ? 'border-primary bg-primary/10 text-white' : 'border-white/10 text-muted hover:border-white/30'}`}>
+                  <input type="radio" name="reason" value={reason} checked={reportReason === reason} onChange={() => setReportReason(reason)} className="hidden" />
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${reportReason === reason ? 'border-primary' : 'border-white/30'}`}>
+                    {reportReason === reason && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <span className="text-sm">{reason}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleReport} disabled={reporting || !reportReason}
+                className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50">
+                {reporting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Flag className="w-4 h-4" />}
+                Melden
+              </button>
+              <button onClick={() => { setReportTarget(null); setReportReason('') }}
+                className="px-6 py-3 border border-white/20 text-white font-bold rounded-xl hover:border-white/40 transition-colors">
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {isEditing && (
@@ -758,7 +854,7 @@ export default function SessionDetail() {
             ) : (
               <div className="flex flex-col gap-3">
                 {participants.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3">
+                  <div key={p.id} className="flex items-center gap-2">
                     <Avatar name={p.user?.name} avatarUrl={p.user?.avatar_url} size="sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-medium truncate">
@@ -771,8 +867,27 @@ export default function SessionDetail() {
                         <p className="text-muted text-xs">{p.user.city}</p>
                       )}
                     </div>
-                    {p.user_id === user?.id && (
+                    {p.user_id === user?.id ? (
                       <Check className="w-4 h-4 text-primary shrink-0" />
+                    ) : user && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isCreator && p.user_id !== session.creator_id && (
+                          <button
+                            onClick={() => handleRemoveParticipant(p.user_id)}
+                            className="p-1.5 rounded-lg text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            title="Entfernen"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setReportTarget(p.user); setReportReason('') }}
+                          className="p-1.5 rounded-lg text-muted hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
+                          title="Melden"
+                        >
+                          <Flag className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
