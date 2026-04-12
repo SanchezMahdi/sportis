@@ -175,7 +175,7 @@ export default function SessionDetail() {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'session_participants',
           filter: `session_id=eq.${id}`,
@@ -216,6 +216,9 @@ export default function SessionDetail() {
   const isParticipant = participants.some((p) => p.user_id === user?.id)
   const isFull = participants.length >= (session?.max_players || 0)
   const isCreator = session?.creator_id === user?.id
+  const isExpired = session?.date
+    ? new Date(`${session.date}T${session.time || '23:59:59'}`) < new Date()
+    : false
 
   const handleJoin = async () => {
     if (!user) {
@@ -227,13 +230,7 @@ export default function SessionDetail() {
     setJoining(true)
     try {
       if (isParticipant) {
-        // Leave
-        const { error } = await supabase
-          .from('session_participants')
-          .delete()
-          .eq('session_id', id)
-          .eq('user_id', user.id)
-
+        const { error } = await supabase.rpc('leave_session', { p_session_id: id })
         if (error) throw error
         toast.success('Du hast die Session verlassen.')
       } else {
@@ -241,19 +238,14 @@ export default function SessionDetail() {
           toast.error('Diese Session ist leider voll.')
           return
         }
-        // Join
-        const { error } = await supabase.from('session_participants').insert({
-          session_id: id,
-          user_id: user.id,
-        })
-
+        const { error } = await supabase.rpc('join_session', { p_session_id: id })
         if (error) throw error
         toast.success('Du bist der Session beigetreten! Viel Spaß! 🎉')
       }
       await fetchParticipants()
     } catch (err) {
       console.error('Fehler:', err)
-      toast.error('Aktion fehlgeschlagen. Bitte versuche es erneut.')
+      toast.error(err.message || 'Aktion fehlgeschlagen.')
     } finally {
       setJoining(false)
     }
@@ -262,6 +254,7 @@ export default function SessionDetail() {
   const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!newMessage.trim() || !user) return
+    if (!isParticipant && !isCreator) return
 
     setSending(true)
     const text = newMessage.trim()
@@ -306,11 +299,10 @@ export default function SessionDetail() {
         .eq('session_id', id)
         .eq('user_id', userId)
       if (error) throw error
+      setParticipants((prev) => prev.filter((p) => p.user_id !== userId))
       toast.success('Teilnehmer:in wurde entfernt.')
-      await fetchParticipants()
     } catch (err) {
-      console.error(err)
-      toast.error('Fehler beim Entfernen.')
+      toast.error(err.message || 'Fehler beim Entfernen.')
     }
   }
 
@@ -365,24 +357,20 @@ export default function SessionDetail() {
     e.preventDefault()
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('sessions')
-        .update({
-          title: editForm.title.trim(),
-          sport: editForm.sport,
-          date: editForm.date,
-          time: editForm.time,
-          location: editForm.location.trim(),
-          address: editForm.address.trim() || null,
-          max_players: parseInt(editForm.max_players),
-          gender_filter: editForm.gender_filter,
-          skill_level: editForm.skill_level,
-          description: editForm.description.trim() || null,
-          equipment: editForm.equipment,
-        })
-        .eq('id', id)
-        .eq('creator_id', user.id)
-
+      const { error } = await supabase.rpc('update_session', {
+        p_session_id: id,
+        p_title: editForm.title.trim(),
+        p_sport: editForm.sport,
+        p_date: editForm.date,
+        p_time: editForm.time,
+        p_location: editForm.location.trim(),
+        p_address: editForm.address.trim() || null,
+        p_max_players: parseInt(editForm.max_players),
+        p_gender_filter: editForm.gender_filter,
+        p_skill_level: editForm.skill_level,
+        p_description: editForm.description.trim() || null,
+        p_equipment: editForm.equipment,
+      })
       if (error) throw error
       toast.success('Session erfolgreich aktualisiert!')
       setIsEditing(false)
@@ -569,6 +557,28 @@ export default function SessionDetail() {
         <span className="text-sm">Zurück</span>
       </button>
 
+      {/* Expired banner */}
+      {isExpired && (
+        <div className="flex items-center justify-between gap-4 bg-red-500/10 border border-red-500/30 rounded-2xl px-5 py-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-red-400 shrink-0" />
+            <div>
+              <p className="text-red-400 font-bold text-sm">Session abgelaufen</p>
+              <p className="text-muted text-xs mt-0.5">Dieser Termin liegt in der Vergangenheit.</p>
+            </div>
+          </div>
+          {isCreator && (
+            <button
+              onClick={handleDeleteSession}
+              className="flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-semibold px-4 py-2 rounded-xl transition-colors shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              Löschen
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}
         <div className="lg:col-span-2 flex flex-col gap-6">
@@ -702,68 +712,79 @@ export default function SessionDetail() {
             <div className="flex items-center gap-3 p-4 border-b border-white/10">
               <MessageCircle className="w-5 h-5 text-primary" />
               <h2 className="text-white font-semibold">Session-Chat</h2>
-              <span className="text-muted text-sm">({messages.length})</span>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-[300px] max-h-[400px]">
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                  <MessageCircle className="w-12 h-12 text-primary/30 mb-3" />
-                  <p className="text-white font-medium mb-1">Noch keine Nachrichten</p>
-                  <p className="text-muted text-sm">
-                    Schreib als Erste:r etwas in den Chat!
-                  </p>
-                </div>
-              ) : (
-                messages.map((msg) => (
-                  <ChatMessage
-                    key={msg.id}
-                    message={msg}
-                    isOwn={msg.user_id === user?.id}
-                  />
-                ))
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Chat input */}
-            <div className="p-4 border-t border-white/10">
-              {user ? (
-                <form onSubmit={handleSendMessage} className="flex gap-3">
-                  <input
-                    ref={chatInputRef}
-                    type="text"
-                    placeholder="Nachricht schreiben..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className="flex-1 bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors"
-                    maxLength={500}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newMessage.trim() || sending}
-                    className="bg-primary text-dark p-3 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                    aria-label="Senden"
-                  >
-                    {sending ? (
-                      <div className="w-5 h-5 border-2 border-dark border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
-                  </button>
-                </form>
-              ) : (
-                <div className="text-center py-3">
-                  <p className="text-muted text-sm">
-                    <Link to="/login" className="text-primary hover:text-green-400 font-medium">
-                      Melde dich an
-                    </Link>{' '}
-                    um am Chat teilzunehmen.
-                  </p>
-                </div>
+              {(isParticipant || isCreator) && (
+                <span className="text-muted text-sm">({messages.length})</span>
               )}
             </div>
+
+            {(isParticipant || isCreator) ? (
+              <>
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-[300px] max-h-[400px]">
+                  {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                      <MessageCircle className="w-12 h-12 text-primary/30 mb-3" />
+                      <p className="text-white font-medium mb-1">Noch keine Nachrichten</p>
+                      <p className="text-muted text-sm">
+                        Schreib als Erste:r etwas in den Chat!
+                      </p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <ChatMessage
+                        key={msg.id}
+                        message={msg}
+                        isOwn={msg.user_id === user?.id}
+                      />
+                    ))
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat input */}
+                <div className="p-4 border-t border-white/10">
+                  <form onSubmit={handleSendMessage} className="flex gap-3">
+                    <input
+                      ref={chatInputRef}
+                      type="text"
+                      placeholder="Nachricht schreiben..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      className="flex-1 bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors"
+                      maxLength={500}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newMessage.trim() || sending}
+                      className="bg-primary text-dark p-3 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      aria-label="Senden"
+                    >
+                      {sending ? (
+                        <div className="w-5 h-5 border-2 border-dark border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <MessageCircle className="w-12 h-12 text-muted/20 mb-4" />
+                <p className="text-white font-medium mb-1">Nur für Teilnehmer</p>
+                <p className="text-muted text-sm">
+                  {user
+                    ? 'Tritt der Session bei, um den Chat zu sehen.'
+                    : <>
+                        <Link to="/login" className="text-primary hover:text-green-400 font-medium">
+                          Melde dich an
+                        </Link>{' '}
+                        und tritt der Session bei.
+                      </>
+                  }
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
