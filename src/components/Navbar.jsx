@@ -89,9 +89,10 @@ export default function Navbar() {
   }, [])
 
   const handleNotiClick = async (n) => {
+    // Mark as read immediately in UI
+    setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
     if (!n.read) {
       await supabase.from('notifications').update({ read: true }).eq('id', n.id)
-      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
     }
     if (n.session_id) {
       navigate(`/session/${n.session_id}`)
@@ -101,8 +102,15 @@ export default function Navbar() {
 
   const markAllRead = async () => {
     if (unreadCount === 0) return
-    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false)
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+    if (error) {
+      console.error('markAllRead error:', error)
+    }
   }
 
   const handleSignOut = async () => {
