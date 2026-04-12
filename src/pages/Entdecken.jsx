@@ -1,11 +1,22 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { Search, Filter, Plus, RefreshCw, List, Map } from 'lucide-react'
+import { Search, Filter, Plus, RefreshCw, List, Map, LocateFixed, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { SPORTARTEN, GENDER_FILTERS } from '../lib/constants'
 import SessionCard from '../components/SessionCard'
 import LoadingSpinner from '../components/LoadingSpinner'
+
+// Haversine distance in km
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 export default function Entdecken() {
   const { user } = useAuth()
@@ -15,6 +26,9 @@ export default function Entdecken() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [viewMode, setViewMode] = useState('list')
+  const [geoLoading, setGeoLoading] = useState(false)
+  const [userCoords, setUserCoords] = useState(null) // { lat, lng }
+  const cityDebounce = useRef(null)
 
   // Filters
   const [filters, setFilters] = useState({
@@ -22,9 +36,59 @@ export default function Entdecken() {
     city: searchParams.get('city') || '',
     gender: searchParams.get('gender') || '',
     date: searchParams.get('date') || '',
+    radius: searchParams.get('radius') || '',
   })
 
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Geocode city to lat/lng via Nominatim
+  const geocodeCity = useCallback(async (city) => {
+    if (!city || city.length < 2) { setUserCoords(null); return }
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1&countrycodes=de,at,ch`,
+        { headers: { 'Accept-Language': 'de' } }
+      )
+      const data = await res.json()
+      if (data[0]) setUserCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+      else setUserCoords(null)
+    } catch { setUserCoords(null) }
+  }, [])
+
+  // Re-geocode when city filter changes (debounced)
+  useEffect(() => {
+    if (filters.radius && filters.city) {
+      clearTimeout(cityDebounce.current)
+      cityDebounce.current = setTimeout(() => geocodeCity(filters.city), 600)
+    } else {
+      setUserCoords(null)
+    }
+    return () => clearTimeout(cityDebounce.current)
+  }, [filters.city, filters.radius, geocodeCity])
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) return
+    setGeoLoading(true)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        setUserCoords({ lat, lng })
+        // Reverse geocode to city name
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { 'Accept-Language': 'de' } }
+          )
+          const data = await res.json()
+          const city = data.address?.city || data.address?.town || data.address?.village || ''
+          handleFilterChange('city', city)
+          if (!filters.radius) handleFilterChange('radius', '10')
+        } catch {}
+        setGeoLoading(false)
+      },
+      () => setGeoLoading(false)
+    )
+  }
 
   const fetchSessions = useCallback(async () => {
     setLoading(true)
@@ -36,25 +100,38 @@ export default function Entdecken() {
         .select(`
           *,
           creator:users!creator_id(id, name, city, avatar_url),
-          session_participants(user_id)
+          session_participants(user_id, waitlist)
         `)
         .order('date', { ascending: true })
         .order('time', { ascending: true })
 
+      const today = new Date().toISOString().split('T')[0]
+      query = query.gte('date', today)
+
       if (filters.sport) query = query.eq('sport', filters.sport)
-      if (filters.city) query = query.ilike('location', `%${filters.city}%`)
+      if (!filters.radius && filters.city) query = query.ilike('location', `%${filters.city}%`)
       if (filters.gender) query = query.eq('gender_filter', filters.gender)
       if (filters.date) query = query.eq('date', filters.date)
 
       const { data, error: fetchError } = await query
-
       if (fetchError) throw fetchError
 
-      // Add participant_count for convenience
-      const enriched = (data || []).map((s) => ({
+      let enriched = (data || []).map((s) => ({
         ...s,
-        participant_count: s.session_participants?.length ?? 0,
+        participant_count: s.session_participants?.filter(p => !p.waitlist).length ?? 0,
       }))
+
+      // Client-side radius filter
+      if (filters.radius && userCoords) {
+        const km = parseFloat(filters.radius)
+        enriched = enriched.filter(s => {
+          if (!s.lat || !s.lng) return false
+          return haversine(userCoords.lat, userCoords.lng, s.lat, s.lng) <= km
+        }).map(s => ({
+          ...s,
+          _distance: haversine(userCoords.lat, userCoords.lng, s.lat, s.lng),
+        })).sort((a, b) => a._distance - b._distance)
+      }
 
       setSessions(enriched)
     } catch (err) {
@@ -63,7 +140,7 @@ export default function Entdecken() {
     } finally {
       setLoading(false)
     }
-  }, [filters])
+  }, [filters, userCoords])
 
   useEffect(() => {
     fetchSessions()
@@ -97,19 +174,16 @@ export default function Entdecken() {
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value }
     setFilters(newFilters)
-
-    // Update URL params
     const params = new URLSearchParams()
-    Object.entries(newFilters).forEach(([k, v]) => {
-      if (v) params.set(k, v)
-    })
+    Object.entries(newFilters).forEach(([k, v]) => { if (v) params.set(k, v) })
     setSearchParams(params)
   }
 
   const clearFilters = () => {
-    const empty = { sport: '', city: '', gender: '', date: '' }
+    const empty = { sport: '', city: '', gender: '', date: '', radius: '' }
     setFilters(empty)
     setSearchParams({})
+    setUserCoords(null)
   }
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
@@ -164,71 +238,74 @@ export default function Entdecken() {
           )}
         </div>
 
-        <div
-          className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 ${
-            filtersOpen ? 'block' : 'hidden md:grid'
-          }`}
-        >
-          {/* Sport filter */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 ${filtersOpen ? 'block' : 'hidden md:grid'}`}>
+          {/* Sport */}
           <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">
-              Sportart
-            </label>
+            <label className="text-muted text-xs font-medium uppercase tracking-wide">Sportart</label>
             <select
               value={filters.sport}
               onChange={(e) => handleFilterChange('sport', e.target.value)}
               className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
             >
               <option value="">Alle Sportarten</option>
-              {SPORTARTEN.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
+              {SPORTARTEN.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 
-          {/* City filter */}
+          {/* City */}
           <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">
-              Stadt
-            </label>
+            <label className="text-muted text-xs font-medium uppercase tracking-wide">Stadt / PLZ</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
               <input
                 type="text"
-                placeholder="z.B. Berlin"
+                placeholder="z.B. Hamburg"
                 value={filters.city}
                 onChange={(e) => handleFilterChange('city', e.target.value)}
-                className="w-full bg-dark border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors"
+                className="w-full bg-dark border border-white/10 rounded-xl pl-9 pr-9 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors"
               />
+              <button
+                onClick={handleLocateMe}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-primary transition-colors"
+                title="Meinen Standort nutzen"
+              >
+                {geoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
-          {/* Gender filter */}
+          {/* Radius */}
           <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">
-              Geschlecht
-            </label>
+            <label className="text-muted text-xs font-medium uppercase tracking-wide">Umkreis</label>
+            <select
+              value={filters.radius}
+              onChange={(e) => handleFilterChange('radius', e.target.value)}
+              className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
+            >
+              <option value="">Kein Limit</option>
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="25">25 km</option>
+              <option value="50">50 km</option>
+            </select>
+          </div>
+
+          {/* Gender */}
+          <div className="flex flex-col gap-1">
+            <label className="text-muted text-xs font-medium uppercase tracking-wide">Geschlecht</label>
             <select
               value={filters.gender}
               onChange={(e) => handleFilterChange('gender', e.target.value)}
               className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
             >
               <option value="">Alle</option>
-              {GENDER_FILTERS.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
+              {GENDER_FILTERS.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
 
-          {/* Date filter */}
+          {/* Date */}
           <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">
-              Datum
-            </label>
+            <label className="text-muted text-xs font-medium uppercase tracking-wide">Datum</label>
             <input
               type="date"
               value={filters.date}

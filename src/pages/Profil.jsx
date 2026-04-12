@@ -138,7 +138,6 @@ export default function Profil() {
         .select(`
           session:sessions(
             *,
-            creator:users!creator_id(id, name, city, avatar_url),
             session_participants(user_id)
           )
         `)
@@ -154,12 +153,11 @@ export default function Profil() {
 
       setJoinedSessions(joined)
 
-      // Sessions the user created
+      // Sessions the user created (via participants to avoid creator_id ambiguity)
       const { data: createdData } = await supabase
         .from('sessions')
         .select(`
           *,
-          creator:users!creator_id(id, name, city, avatar_url),
           session_participants(user_id)
         `)
         .eq('creator_id', user.id)

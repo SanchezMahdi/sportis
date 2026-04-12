@@ -100,6 +100,8 @@ export default function SessionDetail() {
   const [reportTarget, setReportTarget] = useState(null)
   const [reportReason, setReportReason] = useState('')
   const [reporting, setReporting] = useState(false)
+  const [joinRequest, setJoinRequest] = useState(null) // eigene Anfrage
+  const [pendingRequests, setPendingRequests] = useState([]) // für Creator
 
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
@@ -154,14 +156,30 @@ export default function SessionDetail() {
     }
   }, [id])
 
+  const fetchJoinRequests = useCallback(async () => {
+    if (!user) return
+    try {
+      const { data } = await supabase
+        .from('join_requests')
+        .select('*, user:users(id, name, city, avatar_url)')
+        .eq('session_id', id)
+      if (!data) return
+      const own = data.find((r) => r.user_id === user.id)
+      setJoinRequest(own || null)
+      setPendingRequests(data.filter((r) => r.status === 'pending' && r.user_id !== user.id))
+    } catch (err) {
+      console.error('Join requests konnten nicht geladen werden:', err)
+    }
+  }, [id, user])
+
   useEffect(() => {
     const init = async () => {
       setLoading(true)
-      await Promise.all([fetchSession(), fetchParticipants(), fetchMessages()])
+      await Promise.all([fetchSession(), fetchParticipants(), fetchMessages(), fetchJoinRequests()])
       setLoading(false)
     }
     init()
-  }, [fetchSession, fetchParticipants, fetchMessages])
+  }, [fetchSession, fetchParticipants, fetchMessages, fetchJoinRequests])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -214,40 +232,81 @@ export default function SessionDetail() {
   }, [id, fetchParticipants])
 
   const isParticipant = participants.some((p) => p.user_id === user?.id)
-  const isFull = participants.length >= (session?.max_players || 0)
+  const confirmedCount = participants.filter((p) => !p.waitlist).length
+  const isFull = confirmedCount >= (session?.max_players || 0)
   const isCreator = session?.creator_id === user?.id
   const isExpired = session?.date
     ? new Date(`${session.date}T${session.time || '23:59:59'}`) < new Date()
     : false
 
-  const handleJoin = async () => {
-    if (!user) {
-      toast.error('Bitte melde dich an, um dieser Session beizutreten.')
-      navigate('/login')
-      return
-    }
-
+  const handleSendRequest = async () => {
+    if (!user) { navigate('/login'); return }
     setJoining(true)
     try {
-      if (isParticipant) {
-        const { error } = await supabase.rpc('leave_session', { p_session_id: id })
-        if (error) throw error
-        toast.success('Du hast die Session verlassen.')
-      } else {
-        if (isFull) {
-          toast.error('Diese Session ist leider voll.')
-          return
-        }
-        const { error } = await supabase.rpc('join_session', { p_session_id: id })
-        if (error) throw error
-        toast.success('Du bist der Session beigetreten! Viel Spaß! 🎉')
-      }
-      await fetchParticipants()
+      const { error } = await supabase.rpc('request_join_session', { p_session_id: id })
+      if (error) throw error
+      toast.success('Anfrage gesendet! Der Ersteller wird benachrichtigt.')
+      await fetchJoinRequests()
     } catch (err) {
-      console.error('Fehler:', err)
-      toast.error(err.message || 'Aktion fehlgeschlagen.')
+      toast.error(err.message || 'Anfrage konnte nicht gesendet werden.')
     } finally {
       setJoining(false)
+    }
+  }
+
+  const handleCancelRequest = async () => {
+    setJoining(true)
+    try {
+      const { error } = await supabase
+        .from('join_requests')
+        .delete()
+        .eq('session_id', id)
+        .eq('user_id', user.id)
+      if (error) throw error
+      setJoinRequest(null)
+      toast.success('Anfrage zurückgezogen.')
+    } catch (err) {
+      toast.error('Fehler beim Zurückziehen.')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  const handleLeave = async () => {
+    if (!window.confirm('Session wirklich verlassen?')) return
+    setJoining(true)
+    try {
+      const { error } = await supabase.rpc('leave_session', { p_session_id: id })
+      if (error) throw error
+      toast.success('Du hast die Session verlassen.')
+      await supabase.rpc('promote_from_waitlist', { p_session_id: id })
+      await fetchParticipants()
+    } catch (err) {
+      toast.error(err.message || 'Fehler beim Verlassen.')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  const handleAcceptRequest = async (requestId) => {
+    try {
+      const { error } = await supabase.rpc('accept_join_request', { p_request_id: requestId })
+      if (error) throw error
+      toast.success('Anfrage akzeptiert!')
+      await Promise.all([fetchParticipants(), fetchJoinRequests()])
+    } catch (err) {
+      toast.error(err.message || 'Fehler beim Akzeptieren.')
+    }
+  }
+
+  const handleRejectRequest = async (requestId) => {
+    try {
+      const { error } = await supabase.rpc('reject_join_request', { p_request_id: requestId })
+      if (error) throw error
+      toast.success('Anfrage abgelehnt.')
+      await fetchJoinRequests()
+    } catch (err) {
+      toast.error(err.message || 'Fehler beim Ablehnen.')
     }
   }
 
@@ -795,44 +854,124 @@ export default function SessionDetail() {
             <div className="text-center mb-4">
               <p className="text-muted text-sm mb-1">Freie Plätze</p>
               <p className="text-4xl font-black text-white">
-                {Math.max(0, session.max_players - participants.length)}
+                {Math.max(0, session.max_players - confirmedCount)}
               </p>
               <p className="text-muted text-xs mt-1">
                 von {session.max_players} gesamt
               </p>
             </div>
 
-            {user ? (
-              <button
-                onClick={handleJoin}
-                disabled={joining || (isFull && !isParticipant)}
-                className={`w-full font-bold py-3.5 rounded-xl transition-all text-sm ${
-                  isParticipant
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
-                    : isFull
-                    ? 'bg-white/10 text-muted cursor-not-allowed'
-                    : 'bg-primary text-dark hover:bg-green-400 hover:scale-105'
-                } disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-              >
-                {joining ? (
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : isParticipant ? (
-                  'Session verlassen'
-                ) : isFull ? (
-                  'Session ist voll'
-                ) : (
-                  'Jetzt beitreten'
-                )}
-              </button>
-            ) : (
+            {!user ? (
               <Link
                 to="/login"
                 className="block w-full text-center bg-primary text-dark font-bold py-3.5 rounded-xl hover:bg-green-400 transition-colors text-sm"
               >
-                Anmelden & beitreten
+                Anmelden & anfragen
               </Link>
+            ) : isCreator ? (
+              <div className="text-center py-2">
+                <p className="text-muted text-sm">Du bist der Ersteller dieser Session.</p>
+              </div>
+            ) : isParticipant ? (
+              <div className="flex flex-col gap-2">
+                {participants.find(p => p.user_id === user.id)?.waitlist ? (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 text-center">
+                    <p className="text-yellow-400 font-semibold text-sm">Du bist auf der Warteliste</p>
+                    <p className="text-muted text-xs mt-0.5">Du rückst automatisch nach wenn ein Platz frei wird.</p>
+                  </div>
+                ) : (
+                  <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 text-center">
+                    <p className="text-primary font-semibold text-sm">Du nimmst teil 🎉</p>
+                  </div>
+                )}
+                <button
+                  onClick={handleLeave}
+                  disabled={joining}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  {joining ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mx-auto" /> : 'Session verlassen'}
+                </button>
+              </div>
+            ) : joinRequest?.status === 'pending' ? (
+              <div className="flex flex-col gap-2">
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 text-center">
+                  <p className="text-yellow-400 font-semibold text-sm">Anfrage ausstehend</p>
+                  <p className="text-muted text-xs mt-0.5">Warte auf Bestätigung des Erstellers.</p>
+                </div>
+                <button
+                  onClick={handleCancelRequest}
+                  disabled={joining}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium text-muted border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50"
+                >
+                  Anfrage zurückziehen
+                </button>
+              </div>
+            ) : joinRequest?.status === 'rejected' ? (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-center">
+                <p className="text-red-400 font-semibold text-sm">Anfrage abgelehnt</p>
+                <p className="text-muted text-xs mt-0.5">Der Ersteller hat deine Anfrage abgelehnt.</p>
+              </div>
+            ) : isExpired ? (
+              <div className="text-center py-2">
+                <p className="text-muted text-sm">Diese Session ist abgelaufen.</p>
+              </div>
+            ) : (
+              <button
+                onClick={handleSendRequest}
+                disabled={joining}
+                className="w-full bg-primary text-dark font-bold py-3.5 rounded-xl hover:bg-green-400 hover:scale-105 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {joining
+                  ? <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" />
+                  : 'Anfrage senden'}
+              </button>
             )}
           </div>
+
+          {/* Pending requests card — only for creator */}
+          {isCreator && (
+            <div className="bg-card rounded-2xl border border-white/10 p-5">
+              <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wide flex items-center justify-between">
+                <span>Beitrittsanfragen</span>
+                {pendingRequests.length > 0 && (
+                  <span className="bg-primary text-dark text-xs font-black w-5 h-5 rounded-full flex items-center justify-center">
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </h3>
+              {pendingRequests.length === 0 ? (
+                <p className="text-muted text-sm text-center py-3">Keine offenen Anfragen.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {pendingRequests.map((req) => (
+                    <div key={req.id} className="flex items-center gap-3 p-3 bg-dark rounded-xl border border-white/5">
+                      <Avatar name={req.user?.name} avatarUrl={req.user?.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{req.user?.name}</p>
+                        {req.user?.city && <p className="text-muted text-xs">{req.user.city}</p>}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => handleAcceptRequest(req.id)}
+                          className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                          title="Akzeptieren"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleRejectRequest(req.id)}
+                          className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                          title="Ablehnen"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Creator card */}
           <div className="bg-card rounded-2xl border border-white/10 p-5">
@@ -862,7 +1001,7 @@ export default function SessionDetail() {
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wide flex items-center justify-between">
               <span>Teilnehmer:innen</span>
               <span className="text-primary text-sm font-bold normal-case">
-                {participants.length}/{session.max_players}
+                {participants.filter(p => !p.waitlist).length}/{session.max_players}
               </span>
             </h3>
 
@@ -882,9 +1021,13 @@ export default function SessionDetail() {
                           <span className="ml-2 text-primary text-xs">(Ersteller:in)</span>
                         )}
                       </p>
-                      {p.user?.city && (
-                        <p className="text-muted text-xs">{p.user.city}</p>
-                      )}
+                      <p className="text-xs">
+                        {p.waitlist
+                          ? <span className="text-yellow-400">Warteliste</span>
+                          : p.user?.city
+                          ? <span className="text-muted">{p.user.city}</span>
+                          : null}
+                      </p>
                     </div>
                     {p.user_id === user?.id ? (
                       <Check className="w-4 h-4 text-primary shrink-0" />

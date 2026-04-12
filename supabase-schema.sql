@@ -248,3 +248,86 @@ $$ language plpgsql security definer;
 create trigger on_session_join
   after insert on public.session_participants
   for each row execute procedure public.handle_session_join();
+
+-- Function: delete a session (bypasses RLS ambiguity)
+create or replace function public.delete_session(p_session_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  set local row_security = off;
+  if not exists (
+    select 1 from public.sessions
+    where id = p_session_id and creator_id = auth.uid()
+  ) then
+    raise exception 'Keine Berechtigung';
+  end if;
+  delete from public.sessions where id = p_session_id;
+end;
+$$;
+grant execute on function public.delete_session(uuid) to authenticated;
+
+-- Function: update a session (bypasses RLS ambiguity)
+create or replace function public.update_session(
+  p_session_id   uuid,
+  p_title        text,
+  p_sport        text,
+  p_date         date,
+  p_time         time,
+  p_location     text,
+  p_address      text,
+  p_max_players  int,
+  p_gender_filter text,
+  p_skill_level  text,
+  p_description  text,
+  p_equipment    boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  set local row_security = off;
+  if not exists (
+    select 1 from public.sessions
+    where id = p_session_id and creator_id = auth.uid()
+  ) then
+    raise exception 'Keine Berechtigung';
+  end if;
+  update public.sessions set
+    title         = p_title,
+    sport         = p_sport,
+    date          = p_date,
+    time          = p_time,
+    location      = p_location,
+    address       = p_address,
+    max_players   = p_max_players,
+    gender_filter = p_gender_filter,
+    skill_level   = p_skill_level,
+    description   = p_description,
+    equipment     = p_equipment
+  where id = p_session_id;
+end;
+$$;
+grant execute on function public.update_session(uuid, text, text, date, time, text, text, int, text, text, text, boolean) to authenticated;
+
+-- Function: delete all expired sessions (date < today)
+create or replace function public.cleanup_expired_sessions()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  set local row_security = off;
+  delete from public.sessions where date < current_date;
+end;
+$$;
+grant execute on function public.cleanup_expired_sessions() to authenticated;
+
+-- (Optional) Auto-run cleanup every night at midnight via pg_cron:
+-- select cron.schedule('cleanup-expired-sessions', '0 0 * * *', 'select public.cleanup_expired_sessions()');
+

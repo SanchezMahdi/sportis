@@ -11,6 +11,7 @@ const SessionDetail  = lazy(() => import('./pages/SessionDetail'))
 const SessionErstellen = lazy(() => import('./pages/SessionErstellen'))
 const Plaetze        = lazy(() => import('./pages/Plaetze'))
 const Profil         = lazy(() => import('./pages/Profil'))
+const Dashboard      = lazy(() => import('./pages/Dashboard'))
 const Login          = lazy(() => import('./pages/Login'))
 const Impressum      = lazy(() => import('./pages/Impressum'))
 const Datenschutz    = lazy(() => import('./pages/Datenschutz'))
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/session/:id"     element={<Wrap><SessionDetail /></Wrap>} />
           <Route path="/plaetze"         element={<Wrap><Plaetze /></Wrap>} />
           <Route path="/profil"          element={<Wrap><Profil /></Wrap>} />
+          <Route path="/dashboard"       element={<Wrap><Dashboard /></Wrap>} />
           <Route path="/login"           element={<Wrap><Login /></Wrap>} />
           <Route path="/impressum"       element={<Wrap><Impressum /></Wrap>} />
           <Route path="/datenschutz"     element={<Wrap><Datenschutz /></Wrap>} />

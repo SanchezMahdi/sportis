@@ -1,10 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Info } from 'lucide-react'
+import { ArrowLeft, Plus, Info, MapPin, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { SPORTARTEN, SKILL_LEVELS, GENDER_FILTERS } from '../lib/constants'
+
+const SPORT_LEISURE = new Set(['pitch', 'sports_centre', 'stadium', 'fitness_centre', 'swimming_pool', 'ice_rink', 'golf_course', 'track'])
+
+function venueEmoji(s) {
+  if (s.type === 'pitch') return '⚽'
+  if (s.type === 'fitness_centre') return '💪'
+  if (s.type === 'swimming_pool') return '🏊'
+  if (s.type === 'stadium') return '🏟️'
+  if (s.type === 'sports_centre') return '🏟️'
+  if (s.class === 'leisure') return '🌳'
+  if (s.class === 'natural') return '🌿'
+  return '📍'
+}
+
+function formatSuggestion(s) {
+  const parts = s.display_name.split(', ')
+  const name = parts[0]
+  const city = s.address?.city || s.address?.town || s.address?.village || s.address?.municipality || ''
+  const state = s.address?.state || ''
+  const sub = [city, state].filter(Boolean).join(', ')
+  return { name, sub }
+}
 
 const initialForm = {
   title: '',
@@ -54,6 +76,78 @@ export default function SessionErstellen() {
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
+  const [suggestions, setSuggestions] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const debounceRef = useRef(null)
+  const suggestionRef = useRef(null)
+
+  const [addrSuggestions, setAddrSuggestions] = useState([])
+  const [addrSearching, setAddrSearching] = useState(false)
+  const [showAddrSuggestions, setShowAddrSuggestions] = useState(false)
+  const addrDebounceRef = useRef(null)
+  const addrSuggestionRef = useRef(null)
+
+  const searchAddresses = useCallback(async (query) => {
+    if (query.length < 5) { setAddrSuggestions([]); return }
+    setAddrSearching(true)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=de&format=json&addressdetails=1&limit=6`,
+        { headers: { 'Accept-Language': 'de' } }
+      )
+      const data = await res.json()
+      setAddrSuggestions(data.slice(0, 6))
+      setShowAddrSuggestions(true)
+    } catch {
+      setAddrSuggestions([])
+    } finally {
+      setAddrSearching(false)
+    }
+  }, [])
+
+  const searchVenues = useCallback(async (query) => {
+    if (query.length < 3) { setSuggestions([]); return }
+    setSearching(true)
+    try {
+      const headers = { 'Accept-Language': 'de' }
+      const base = `https://nominatim.openstreetmap.org/search?countrycodes=de&format=json&addressdetails=1&limit=6`
+      const [r1, r2, r3] = await Promise.all([
+        fetch(`${base}&q=${encodeURIComponent(query + ' Sportplatz')}`, { headers }),
+        fetch(`${base}&q=${encodeURIComponent(query + ' Sportstätte')}`, { headers }),
+        fetch(`${base}&q=${encodeURIComponent(query)}`, { headers }),
+      ])
+      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()])
+
+      // Merge, deduplicate, sports first
+      const seen = new Set()
+      const merged = []
+      for (const item of [...d1, ...d2, ...d3]) {
+        if (!seen.has(item.place_id)) {
+          seen.add(item.place_id)
+          merged.push(item)
+        }
+      }
+      merged.sort((a, b) => Number(SPORT_LEISURE.has(b.type)) - Number(SPORT_LEISURE.has(a.type)))
+      setSuggestions(merged.slice(0, 7))
+      setShowSuggestions(true)
+    } catch {
+      setSuggestions([])
+    } finally {
+      setSearching(false)
+    }
+  }, [])
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(e.target)) setShowSuggestions(false)
+      if (addrSuggestionRef.current && !addrSuggestionRef.current.contains(e.target)) setShowAddrSuggestions(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
@@ -84,14 +178,44 @@ export default function SessionErstellen() {
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
-    // Clear field error on change
     if (errors[field]) {
-      setErrors((prev) => {
-        const next = { ...prev }
-        delete next[field]
-        return next
-      })
+      setErrors((prev) => { const next = { ...prev }; delete next[field]; return next })
     }
+    if (field === 'location') {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => searchVenues(value), 400)
+    }
+    if (field === 'address') {
+      clearTimeout(addrDebounceRef.current)
+      addrDebounceRef.current = setTimeout(() => searchAddresses(value), 400)
+    }
+  }
+
+  const handleSelectAddress = (s) => {
+    const a = s.address || {}
+    const road = a.road || a.pedestrian || a.footway || ''
+    const nr = a.house_number || ''
+    const postcode = a.postcode || ''
+    const city = a.city || a.town || a.village || a.municipality || ''
+    const parts = [road + (nr ? ` ${nr}` : ''), postcode, city].filter(Boolean)
+    setForm((prev) => ({ ...prev, address: parts.join(', ') }))
+    setShowAddrSuggestions(false)
+    setAddrSuggestions([])
+  }
+
+  const handleSelectSuggestion = (s) => {
+    const { name } = formatSuggestion(s)
+    const city = s.address?.city || s.address?.town || s.address?.village || ''
+    const road = s.address?.road || s.address?.pedestrian || ''
+    const nr = s.address?.house_number || ''
+    const postcode = s.address?.postcode || ''
+    const locationText = city && city !== name ? `${name}, ${city}` : name
+    const addressParts = [road + (nr ? ` ${nr}` : ''), postcode, city].filter(Boolean)
+    const addressText = addressParts.join(', ')
+    setForm((prev) => ({ ...prev, location: locationText, address: addressText }))
+    setShowSuggestions(false)
+    setSuggestions([])
+    if (errors.location) setErrors((prev) => { const next = { ...prev }; delete next.location; return next })
   }
 
   const handleSubmit = async (e) => {
@@ -246,25 +370,104 @@ export default function SessionErstellen() {
           </h2>
 
           <FormField label="Ort / Platzbeschreibung" required error={errors.location}>
-            <input
-              type="text"
-              placeholder="z.B. Tempelhofer Feld, Berlin"
-              value={form.location}
-              onChange={(e) => handleChange('location', e.target.value)}
-              className={`${inputClass} ${errors.location ? inputErrorClass : ''}`}
-              maxLength={200}
-            />
+            <div className="relative" ref={suggestionRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="z.B. Reinbek, Stadtpark Hamburg..."
+                  value={form.location}
+                  onChange={(e) => handleChange('location', e.target.value)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  className={`${inputClass} pr-10 ${errors.location ? inputErrorClass : ''}`}
+                  maxLength={200}
+                  autoComplete="off"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+                  {searching
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <MapPin className="w-4 h-4" />}
+                </div>
+              </div>
+
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full bg-card border border-white/15 rounded-xl shadow-2xl overflow-hidden">
+                  {suggestions.map((s, i) => {
+                    const { name, sub } = formatSuggestion(s)
+                    const isSport = SPORT_LEISURE.has(s.type)
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(s)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left"
+                      >
+                        <span className="text-lg shrink-0">{venueEmoji(s)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm truncate ${isSport ? 'text-primary font-medium' : 'text-white'}`}>
+                            {name}
+                          </p>
+                          {sub && <p className="text-muted text-xs truncate">{sub}</p>}
+                        </div>
+                        {isSport && (
+                          <span className="text-xs text-primary/70 shrink-0">Sportstätte</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </FormField>
 
           <FormField label="Genaue Adresse" hint="optional">
-            <input
-              type="text"
-              placeholder="z.B. Tempelhofer Damm 1, 12101 Berlin"
-              value={form.address}
-              onChange={(e) => handleChange('address', e.target.value)}
-              className={inputClass}
-              maxLength={300}
-            />
+            <div className="relative" ref={addrSuggestionRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="z.B. Tempelhofer Damm 1, 12101 Berlin"
+                  value={form.address}
+                  onChange={(e) => handleChange('address', e.target.value)}
+                  onFocus={() => addrSuggestions.length > 0 && setShowAddrSuggestions(true)}
+                  className={`${inputClass} pr-10`}
+                  maxLength={300}
+                  autoComplete="off"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+                  {addrSearching
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <MapPin className="w-4 h-4" />}
+                </div>
+              </div>
+
+              {showAddrSuggestions && addrSuggestions.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full bg-card border border-white/15 rounded-xl shadow-2xl overflow-hidden">
+                  {addrSuggestions.map((s, i) => {
+                    const a = s.address || {}
+                    const road = a.road || a.pedestrian || a.footway || ''
+                    const nr = a.house_number || ''
+                    const postcode = a.postcode || ''
+                    const city = a.city || a.town || a.village || ''
+                    const line1 = road + (nr ? ` ${nr}` : '')
+                    const line2 = [postcode, city].filter(Boolean).join(' ')
+                    if (!line1 && !line2) return null
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSelectAddress(s)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 text-left"
+                      >
+                        <MapPin className="w-4 h-4 text-muted shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {line1 && <p className="text-white text-sm truncate">{line1}</p>}
+                          {line2 && <p className="text-muted text-xs truncate">{line2}</p>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </FormField>
         </div>
 

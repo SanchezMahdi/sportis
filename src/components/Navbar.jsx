@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Zap, Menu, X, Plus, LogOut, User, Bell } from 'lucide-react'
+import { Zap, Menu, X, Plus, LogOut, User, Bell, Calendar } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useAuth } from '../context/AuthContext'
@@ -141,6 +141,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <NavLink to="/entdecken" className={navLinkClass}>Entdecken</NavLink>
             <NavLink to="/plaetze" className={navLinkClass}>Plätze</NavLink>
+            {user && <NavLink to="/dashboard" className={navLinkClass}>Meine Sessions</NavLink>}
             {user && <NavLink to="/profil" className={navLinkClass}>Profil</NavLink>}
           </div>
 
@@ -278,6 +279,14 @@ export default function Navbar() {
             <NavLink to="/plaetze" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
               Plätze
             </NavLink>
+            {user && (
+              <NavLink to="/dashboard" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
+                <span className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Meine Sessions
+                </span>
+              </NavLink>
+            )}
             {user && (
               <NavLink to="/profil" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
                 <span className="flex items-center gap-2">
