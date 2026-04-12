@@ -75,6 +75,44 @@ create table public.courts (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Reported OSM venues (community blacklist)
+create table public.reported_osm_venues (
+  id uuid default uuid_generate_v4() primary key,
+  osm_id text not null unique,
+  name text,
+  reported_by uuid references public.users(id) on delete set null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.reported_osm_venues enable row level security;
+
+create policy "Anyone can read reported venues"
+  on public.reported_osm_venues for select using (true);
+
+create policy "Authenticated users can report venues"
+  on public.reported_osm_venues for insert with check (auth.role() = 'authenticated');
+
+-- Notifications
+create table public.notifications (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.users(id) on delete cascade not null,
+  message text not null,
+  type text not null default 'info',  -- 'join' | 'leave' | 'message' | 'info'
+  session_id uuid references public.sessions(id) on delete cascade,
+  read boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Reports
+create table public.reports (
+  id uuid default uuid_generate_v4() primary key,
+  reporter_id uuid references public.users(id) on delete cascade not null,
+  reported_user_id uuid references public.users(id) on delete cascade not null,
+  session_id uuid references public.sessions(id) on delete cascade,
+  reason text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
@@ -132,6 +170,26 @@ create policy "Courts viewable by everyone"
 create policy "Authenticated users can add courts"
   on public.courts for insert with check (auth.role() = 'authenticated');
 
+alter table public.notifications enable row level security;
+alter table public.reports enable row level security;
+
+-- Notifications policies
+create policy "Users can view their own notifications"
+  on public.notifications for select using (auth.uid() = user_id);
+
+create policy "System can insert notifications"
+  on public.notifications for insert with check (true);
+
+create policy "Users can mark their notifications as read"
+  on public.notifications for update using (auth.uid() = user_id);
+
+-- Reports policies
+create policy "Authenticated users can submit reports"
+  on public.reports for insert with check (auth.role() = 'authenticated');
+
+create policy "Users can view their own reports"
+  on public.reports for select using (auth.uid() = reporter_id);
+
 -- ============================================================
 -- FUNCTIONS & TRIGGERS
 -- ============================================================
@@ -154,3 +212,39 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Function: notify session creator when someone joins
+create or replace function public.handle_session_join()
+returns trigger as $$
+declare
+  v_session record;
+  v_joiner_name text;
+begin
+  select s.*, u.name into v_session
+  from public.sessions s
+  join public.users u on u.id = new.user_id
+  where s.id = new.session_id
+  limit 1;
+
+  select name into v_joiner_name from public.users where id = new.user_id;
+
+  -- Don't notify if creator joins their own session
+  if v_session.creator_id = new.user_id then
+    return new;
+  end if;
+
+  insert into public.notifications (user_id, message, type, session_id)
+  values (
+    v_session.creator_id,
+    v_joiner_name || ' ist deiner Session "' || v_session.title || '" beigetreten.',
+    'join',
+    new.session_id
+  );
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_session_join
+  after insert on public.session_participants
+  for each row execute procedure public.handle_session_join();

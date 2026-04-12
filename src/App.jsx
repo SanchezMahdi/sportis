@@ -1,16 +1,37 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
-import Landing from './pages/Landing'
-import Entdecken from './pages/Entdecken'
-import SessionDetail from './pages/SessionDetail'
-import SessionErstellen from './pages/SessionErstellen'
-import Plaetze from './pages/Plaetze'
-import Profil from './pages/Profil'
-import Login from './pages/Login'
-import Impressum from './pages/Impressum'
-import Datenschutz from './pages/Datenschutz'
+import LoadingSpinner from './components/LoadingSpinner'
+
+const Landing        = lazy(() => import('./pages/Landing'))
+const Entdecken      = lazy(() => import('./pages/Entdecken'))
+const SessionDetail  = lazy(() => import('./pages/SessionDetail'))
+const SessionErstellen = lazy(() => import('./pages/SessionErstellen'))
+const Plaetze        = lazy(() => import('./pages/Plaetze'))
+const Profil         = lazy(() => import('./pages/Profil'))
+const Login          = lazy(() => import('./pages/Login'))
+const Impressum      = lazy(() => import('./pages/Impressum'))
+const Datenschutz    = lazy(() => import('./pages/Datenschutz'))
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <LoadingSpinner />
+    </div>
+  )
+}
+
+function Wrap({ children }) {
+  return (
+    <Layout>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </Layout>
+  )
+}
 
 export default function App() {
   return (
@@ -27,94 +48,21 @@ export default function App() {
               borderRadius: '12px',
               fontSize: '14px',
             },
-            success: {
-              iconTheme: {
-                primary: '#22C55E',
-                secondary: '#0F172A',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#EF4444',
-                secondary: '#fff',
-              },
-            },
+            success: { iconTheme: { primary: '#22C55E', secondary: '#0F172A' } },
+            error:   { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
           }}
         />
 
         <Routes>
-          <Route
-            path="/"
-            element={
-              <Layout>
-                <Landing />
-              </Layout>
-            }
-          />
-          <Route
-            path="/entdecken"
-            element={
-              <Layout>
-                <Entdecken />
-              </Layout>
-            }
-          />
-          <Route
-            path="/session/erstellen"
-            element={
-              <Layout>
-                <SessionErstellen />
-              </Layout>
-            }
-          />
-          <Route
-            path="/session/:id"
-            element={
-              <Layout>
-                <SessionDetail />
-              </Layout>
-            }
-          />
-          <Route
-            path="/plaetze"
-            element={
-              <Layout>
-                <Plaetze />
-              </Layout>
-            }
-          />
-          <Route
-            path="/profil"
-            element={
-              <Layout>
-                <Profil />
-              </Layout>
-            }
-          />
-          <Route
-            path="/login"
-            element={
-              <Layout>
-                <Login />
-              </Layout>
-            }
-          />
-          <Route
-            path="/impressum"
-            element={
-              <Layout>
-                <Impressum />
-              </Layout>
-            }
-          />
-          <Route
-            path="/datenschutz"
-            element={
-              <Layout>
-                <Datenschutz />
-              </Layout>
-            }
-          />
+          <Route path="/"                element={<Wrap><Landing /></Wrap>} />
+          <Route path="/entdecken"       element={<Wrap><Entdecken /></Wrap>} />
+          <Route path="/session/erstellen" element={<Wrap><SessionErstellen /></Wrap>} />
+          <Route path="/session/:id"     element={<Wrap><SessionDetail /></Wrap>} />
+          <Route path="/plaetze"         element={<Wrap><Plaetze /></Wrap>} />
+          <Route path="/profil"          element={<Wrap><Profil /></Wrap>} />
+          <Route path="/login"           element={<Wrap><Login /></Wrap>} />
+          <Route path="/impressum"       element={<Wrap><Impressum /></Wrap>} />
+          <Route path="/datenschutz"     element={<Wrap><Datenschutz /></Wrap>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

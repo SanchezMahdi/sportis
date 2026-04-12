@@ -399,18 +399,13 @@ export default function SessionDetail() {
     if (!window.confirm('Session wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return
 
     try {
-      const { error } = await supabase
-        .from('sessions')
-        .delete()
-        .eq('id', id)
-        .eq('creator_id', user.id)
-
+      const { error } = await supabase.rpc('delete_session', { p_session_id: id })
       if (error) throw error
       toast.success('Session erfolgreich gelöscht.')
       navigate('/entdecken')
     } catch (err) {
       console.error('Fehler beim Löschen:', err)
-      toast.error('Session konnte nicht gelöscht werden.')
+      toast.error(err.message || 'Session konnte nicht gelöscht werden.')
     }
   }
 

@@ -24,6 +24,26 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Leaflet user-location pulse */
+@keyframes sportis-pulse {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.sportis-user-pulse {
+  animation: sportis-pulse 2s ease-out infinite;
+}
+
+/* Leaflet popup style override */
+.leaflet-popup-content-wrapper {
+  background: #1E293B !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 14px !important;
+  color: #fff !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+}
+.leaflet-popup-tip { background: #1E293B !important; }
+.leaflet-popup-content { margin: 14px 16px !important; }
+
 /* Focus styles */
 *:focus-visible {
   outline: 2px solid #22C55E;
