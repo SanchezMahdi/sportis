@@ -23,7 +23,11 @@ import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { SPORT_EMOJIS, SKILL_COLORS, SPORTARTEN, SKILL_LEVELS, GENDER_FILTERS } from '../lib/constants'
+import DOMPurify from 'dompurify'
 import LoadingSpinner from '../components/LoadingSpinner'
+import WeatherWidget from '../components/WeatherWidget'
+import EquipmentChecklist from '../components/EquipmentChecklist'
+import PostGameVoting from '../components/PostGameVoting'
 
 function Avatar({ name, avatarUrl, size = 'md' }) {
   const sizes = {
@@ -100,8 +104,10 @@ export default function SessionDetail() {
   const [reportTarget, setReportTarget] = useState(null)
   const [reportReason, setReportReason] = useState('')
   const [reporting, setReporting] = useState(false)
-  const [joinRequest, setJoinRequest] = useState(null) // eigene Anfrage
-  const [pendingRequests, setPendingRequests] = useState([]) // für Creator
+  const [joinRequest, setJoinRequest] = useState(null)
+  const [pendingRequests, setPendingRequests] = useState([])
+  const [equipmentItems, setEquipmentItems] = useState([])
+  const [plusOne, setPlusOne] = useState(false)
 
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
@@ -112,7 +118,7 @@ export default function SessionDetail() {
         .from('sessions')
         .select(`
           *,
-          creator:users!creator_id(id, name, city, avatar_url)
+          creator:users!creator_id(id, name, city, avatar_url, reliability_score, mvp_count, high_fives_received)
         `)
         .eq('id', id)
         .single()
@@ -172,14 +178,23 @@ export default function SessionDetail() {
     }
   }, [id, user])
 
+  const fetchEquipment = useCallback(async () => {
+    const { data } = await supabase
+      .from('equipment_items')
+      .select('*, bringer:users!brought_by(id, name)')
+      .eq('session_id', id)
+      .order('created_at', { ascending: true })
+    setEquipmentItems(data || [])
+  }, [id])
+
   useEffect(() => {
     const init = async () => {
       setLoading(true)
-      await Promise.all([fetchSession(), fetchParticipants(), fetchMessages(), fetchJoinRequests()])
+      await Promise.all([fetchSession(), fetchParticipants(), fetchMessages(), fetchJoinRequests(), fetchEquipment()])
       setLoading(false)
     }
     init()
-  }, [fetchSession, fetchParticipants, fetchMessages, fetchJoinRequests])
+  }, [fetchSession, fetchParticipants, fetchMessages, fetchJoinRequests, fetchEquipment])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -245,7 +260,15 @@ export default function SessionDetail() {
     try {
       const { error } = await supabase.rpc('request_join_session', { p_session_id: id })
       if (error) throw error
-      toast.success('Anfrage gesendet! Der Ersteller wird benachrichtigt.')
+      // If +1, insert a second request marker
+      if (plusOne) {
+        await supabase.from('session_participants').upsert({
+          session_id: id,
+          user_id: user.id,
+          plus_one: true,
+        }, { onConflict: 'session_id,user_id', ignoreDuplicates: false })
+      }
+      toast.success(plusOne ? 'Anfrage für 2 Personen gesendet!' : 'Anfrage gesendet! Der Ersteller wird benachrichtigt.')
       await fetchJoinRequests()
     } catch (err) {
       toast.error(err.message || 'Anfrage konnte nicht gesendet werden.')
@@ -316,7 +339,7 @@ export default function SessionDetail() {
     if (!isParticipant && !isCreator) return
 
     setSending(true)
-    const text = newMessage.trim()
+    const text = DOMPurify.sanitize(newMessage.trim(), { ALLOWED_TAGS: [] })
     setNewMessage('')
 
     // Optimistic update – sofort anzeigen ohne auf Realtime zu warten
@@ -916,15 +939,32 @@ export default function SessionDetail() {
                 <p className="text-muted text-sm">Diese Session ist abgelaufen.</p>
               </div>
             ) : (
-              <button
-                onClick={handleSendRequest}
-                disabled={joining}
-                className="w-full bg-primary text-dark font-bold py-3.5 rounded-xl hover:bg-green-400 hover:scale-105 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {joining
-                  ? <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" />
-                  : 'Anfrage senden'}
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSendRequest}
+                  disabled={joining}
+                  className="w-full bg-primary text-dark font-bold py-3.5 rounded-xl hover:bg-green-400 hover:scale-105 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {joining
+                    ? <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" />
+                    : 'Anfrage senden'}
+                </button>
+
+                {/* +1 / Freund mitbringen */}
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div
+                    onClick={() => setPlusOne(p => !p)}
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                      plusOne ? 'bg-primary border-primary' : 'border-white/30 group-hover:border-primary'
+                    }`}
+                  >
+                    {plusOne && <Check className="w-2.5 h-2.5 text-dark" />}
+                  </div>
+                  <span className="text-muted text-xs group-hover:text-white transition-colors">
+                    +1 Freund/in mitbringen <span className="text-primary">(1 extra Platz)</span>
+                  </span>
+                </label>
+              </div>
             )}
           </div>
 
@@ -984,13 +1024,27 @@ export default function SessionDetail() {
                 avatarUrl={session.creator?.avatar_url}
                 size="lg"
               />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold">{session.creator?.name}</p>
                 {session.creator?.city && (
                   <p className="text-muted text-sm flex items-center gap-1 mt-0.5">
                     <MapPin className="w-3 h-3" />
                     {session.creator.city}
                   </p>
+                )}
+                {session.creator?.reliability_score !== undefined && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <div className="flex-1 bg-white/10 rounded-full h-1.5 max-w-[80px]">
+                      <div
+                        className={`h-1.5 rounded-full ${
+                          session.creator.reliability_score >= 80 ? 'bg-primary' :
+                          session.creator.reliability_score >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+                        }`}
+                        style={{ width: `${Math.min(100, session.creator.reliability_score)}%` }}
+                      />
+                    </div>
+                    <span className="text-muted text-xs">{session.creator.reliability_score}% Zuverlässigkeit</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -1056,6 +1110,32 @@ export default function SessionDetail() {
               </div>
             )}
           </div>
+
+          {/* Weather Widget */}
+          {session.lat && session.lng && (
+            <WeatherWidget lat={session.lat} lng={session.lng} date={session.date} />
+          )}
+
+          {/* Equipment Checklist */}
+          {(isCreator || isParticipant || equipmentItems.length > 0) && (
+            <EquipmentChecklist
+              sessionId={id}
+              items={equipmentItems}
+              setItems={setEquipmentItems}
+              isCreator={isCreator}
+              currentUserId={user?.id}
+              isParticipant={isParticipant}
+            />
+          )}
+
+          {/* Post-Game Voting */}
+          {isExpired && isParticipant && (
+            <PostGameVoting
+              sessionId={id}
+              participants={participants}
+              currentUserId={user?.id}
+            />
+          )}
         </div>
       </div>
     </div>

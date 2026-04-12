@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
+import CookieBanner from './components/CookieBanner'
 
 const Landing        = lazy(() => import('./pages/Landing'))
 const Entdecken      = lazy(() => import('./pages/Entdecken'))
@@ -54,6 +55,7 @@ export default function App() {
           }}
         />
 
+        <CookieBanner />
         <Routes>
           <Route path="/"                element={<Wrap><Landing /></Wrap>} />
           <Route path="/entdecken"       element={<Wrap><Entdecken /></Wrap>} />

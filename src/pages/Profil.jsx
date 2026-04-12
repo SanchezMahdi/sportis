@@ -207,6 +207,29 @@ export default function Profil() {
     }
   }
 
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      'Konto wirklich löschen? Alle deine Daten (Profil, Sessions, Nachrichten) werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.'
+    )
+    if (!confirmed) return
+    const doubleCheck = window.prompt('Tippe "LÖSCHEN" um zu bestätigen:')
+    if (doubleCheck !== 'LÖSCHEN') { toast.error('Abgebrochen.'); return }
+    try {
+      // Delete user data
+      await supabase.from('session_participants').delete().eq('user_id', user.id)
+      await supabase.from('messages').delete().eq('user_id', user.id)
+      await supabase.from('notifications').delete().eq('user_id', user.id)
+      await supabase.from('join_requests').delete().eq('user_id', user.id)
+      await supabase.from('reviews').delete().eq('from_user_id', user.id)
+      await supabase.from('users').delete().eq('id', user.id)
+      await supabase.auth.signOut()
+      toast.success('Konto gelöscht. Auf Wiedersehen!')
+      navigate('/')
+    } catch (err) {
+      toast.error('Fehler beim Löschen: ' + err.message)
+    }
+  }
+
   const handleAvatarRemove = async () => {
     if (!profile?.avatar_url) return
     if (!window.confirm('Profilbild wirklich entfernen?')) return
@@ -651,6 +674,20 @@ export default function Profil() {
               )}
             </>
           )}
+        </div>
+
+        {/* GDPR: Account löschen */}
+        <div className="bg-card rounded-2xl border border-red-500/20 p-5 mt-6">
+          <h3 className="text-red-400 font-semibold mb-2 text-sm">Gefahrenzone</h3>
+          <p className="text-muted text-xs mb-4">
+            Das Löschen deines Kontos entfernt alle deine Daten dauerhaft (DSGVO Art. 17 – Recht auf Vergessenwerden).
+          </p>
+          <button
+            onClick={handleDeleteAccount}
+            className="px-4 py-2 text-sm font-semibold text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors"
+          >
+            Konto dauerhaft löschen
+          </button>
         </div>
       </div>
     </div>
