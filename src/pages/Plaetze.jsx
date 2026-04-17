@@ -140,6 +140,11 @@ async function fetchSportsVenues(bounds) {
     method: 'POST',
     body: query,
   })
+  if (!res.ok) {
+    const err = new Error(`Overpass HTTP ${res.status}`)
+    err.code = 'OVERPASS_HTTP'
+    throw err
+  }
   const data = await res.json()
   return (data.elements || []).map(el => {
     const lat = el.lat ?? el.center?.lat
@@ -260,7 +265,7 @@ function BoundsWatcher({ onBoundsChange, onZoomChange }) {
   useEffect(() => {
     onZoomChange(map.getZoom())
     if (map.getZoom() >= MIN_ZOOM) onBoundsChange(map.getBounds())
-  }, [])
+  }, [onBoundsChange, onZoomChange, map])
   return null
 }
 
@@ -485,16 +490,25 @@ export default function Plaetze() {
       }
     } catch (err) {
       console.warn('Overpass error:', err)
-      toast.error('Karte konnte nicht geladen werden. Bitte neu laden.', { id: 'overpass-err', duration: 3000 })
+      const isRateLimit = err && err.code === 'OVERPASS_HTTP'
+      setVenues(prev => {
+        if (!isRateLimit && prev.length === 0) {
+          toast.error('Karte konnte nicht geladen werden. Bitte neu laden.', { id: 'overpass-err', duration: 3000 })
+        }
+        return prev
+      })
     } finally {
       setMapLoading(false)
     }
   }, [radiusKm, userLocation])
 
-  // Re-filter when radius changes
   useEffect(() => {
-    if (lastBoundsRef.current) handleBoundsChange(lastBoundsRef.current)
-  }, [radiusKm, handleBoundsChange])
+    if (!lastBoundsRef.current) return
+    const t = setTimeout(() => {
+      if (lastBoundsRef.current) handleBoundsChange(lastBoundsRef.current)
+    }, userLocation ? 900 : 0)
+    return () => clearTimeout(t)
+  }, [radiusKm, userLocation, handleBoundsChange])
 
   function handleLocate() {
     if (!navigator.geolocation) {
