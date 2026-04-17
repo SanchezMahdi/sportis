@@ -493,7 +493,7 @@ export default function Plaetze() {
       const isRateLimit = err && err.code === 'OVERPASS_HTTP'
       setVenues(prev => {
         if (!isRateLimit && prev.length === 0) {
-          toast.error('Karte konnte nicht geladen werden. Bitte neu laden.', { id: 'overpass-err', duration: 3000 })
+          // toast.error('Karte konnte nicht geladen werden. Bitte neu laden.', { id: 'overpass-err', duration: 3000 }) // Stummgeschaltet
         }
         return prev
       })
