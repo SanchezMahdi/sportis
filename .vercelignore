@@ -1,0 +1,9 @@
+# Vercel Build Ignore
+node_modules
+.git
+.env.example
+.npmrc
+supabase/migrations/*
+*.patch
+*.md
+!00_START_HERE.md
