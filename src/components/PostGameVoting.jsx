@@ -49,6 +49,7 @@ export default function PostGameVoting({ sessionId, participants, currentUserId 
   const handleSubmit = async () => {
     setLoading(true)
     try {
+      // Submitte Reviews
       for (const [toUserId, rating] of Object.entries(votes)) {
         if (!rating.is_mvp && !rating.high_five) continue
         await supabase.rpc('submit_review', {
@@ -58,9 +59,16 @@ export default function PostGameVoting({ sessionId, participants, currentUserId 
           p_high_five: !!rating.high_five,
         })
       }
+      
+      // Finalize session scores (aktualisiere User-Metriken)
+      await supabase.rpc('finalize_session_scores', {
+        p_session_id: sessionId
+      })
+      
       setSubmitted(true)
-      toast.success('Bewertungen abgegeben! 🎉')
+      toast.success('Bewertungen abgegeben! 🎉 Scores aktualisiert!')
     } catch (err) {
+      console.error('Fehler beim Speichern:', err)
       toast.error('Fehler beim Speichern.')
     } finally {
       setLoading(false)

@@ -141,6 +141,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <NavLink to="/entdecken" className={navLinkClass}>Entdecken</NavLink>
             <NavLink to="/plaetze" className={navLinkClass}>Plätze</NavLink>
+            <NavLink to="/ranking" className={navLinkClass}>Ranking</NavLink>
             {user && <NavLink to="/dashboard" className={navLinkClass}>Meine Sessions</NavLink>}
             {user && <NavLink to="/profil" className={navLinkClass}>Profil</NavLink>}
           </div>
@@ -278,6 +279,9 @@ export default function Navbar() {
             </NavLink>
             <NavLink to="/plaetze" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
               Plätze
+            </NavLink>
+            <NavLink to="/ranking" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
+              Ranking
             </NavLink>
             {user && (
               <NavLink to="/dashboard" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>

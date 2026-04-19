@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext'
 import { SPORTARTEN, SPORT_EMOJIS } from '../lib/constants'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SessionCard from '../components/SessionCard'
+import ScoreTracker from '../components/ScoreTracker'
 
 function Avatar({ name, avatarUrl, size = 'xl' }) {
   const sizes = {
@@ -530,6 +531,12 @@ export default function Profil() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Score Tracker Section - NEW */}
+      <div className="my-8">
+        <h2 className="text-2xl font-black text-white mb-6">📊 Performance Statistiken</h2>
+        <ScoreTracker userId={user?.id} />
       </div>
 
       {/* Tabs */}
