@@ -82,10 +82,20 @@ function ScoreChart({ history }) {
 }
 
 export default function ScoreTracker({ userId }) {
-  const [stats, setStats] = useState(null)
+  const [stats, setStats] = useState({
+    id: userId || 'unknown',
+    full_name: 'Nutzer',
+    name: 'Nutzer',
+    mvp_count: 0,
+    high_fives_received: 0,
+    sessions_played: 0,
+    reliability_score: 50,
+    avg_rating: 0
+  })
   const [history, setHistory] = useState([])
   const [ranking, setRanking] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [period, setPeriod] = useState('all') // 'week', 'month', 'all'
 
   useEffect(() => {
