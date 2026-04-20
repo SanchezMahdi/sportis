@@ -90,7 +90,23 @@ export default function ScoreTracker({ userId }) {
 
   useEffect(() => {
     const loadStats = async () => {
-      if (!userId) return
+      if (!userId) {
+        console.warn('ScoreTracker: Keine userId vorhanden')
+        // Zeige leere Stats
+        setStats({
+          id: 'unknown',
+          full_name: 'Nutzer',
+          name: 'Nutzer',
+          mvp_count: 0,
+          high_fives_received: 0,
+          sessions_played: 0,
+          reliability_score: 50,
+          avg_rating: 0
+        })
+        setLoading(false)
+        return
+      }
+      
       setLoading(true)
       
       try {
@@ -115,29 +131,45 @@ export default function ScoreTracker({ userId }) {
             avg_rating: 0
           })
         } else {
-          setStats(userData)
+          setStats(userData || {
+            id: userId,
+            full_name: 'Nutzer',
+            name: 'Nutzer',
+            mvp_count: 0,
+            high_fives_received: 0,
+            sessions_played: 0,
+            reliability_score: 50,
+            avg_rating: 0
+          })
         }
 
         // Lade Score-History (optional, nicht kritisch)
-        const { data: historyData, error: historyError } = await supabase
-          .from('score_history')
-          .select('*')
-          .eq('user_id', userId)
-          .order('recorded_at', { ascending: true })
-          .limit(30)
-        
-        if (!historyError && historyData) {
-          setHistory(historyData)
-        } else {
+        try {
+          const { data: historyData } = await supabase
+            .from('score_history')
+            .select('*')
+            .eq('user_id', userId)
+            .order('recorded_at', { ascending: true })
+            .limit(30)
+          
+          if (historyData) {
+            setHistory(historyData)
+          }
+        } catch (histErr) {
+          console.log('Score-History nicht verfügbar:', histErr)
           setHistory([])
         }
 
         // Lade Ranking (optional, nicht kritisch)
-        const { data: rankingData, error: rankingError } = await supabase
-          .rpc('get_my_ranking', { p_user_id: userId })
-        
-        if (!rankingError && rankingData && rankingData.length > 0) {
-          setRanking(rankingData[0])
+        try {
+          const { data: rankingData } = await supabase
+            .rpc('get_my_ranking', { p_user_id: userId })
+          
+          if (rankingData && rankingData.length > 0) {
+            setRanking(rankingData[0])
+          }
+        } catch (rankErr) {
+          console.log('Ranking RPC nicht verfügbar:', rankErr)
         }
       } catch (err) {
         console.error('Fehler beim Laden der Statistiken:', err)
@@ -170,7 +202,7 @@ export default function ScoreTracker({ userId }) {
   if (!stats) {
     return (
       <div className="bg-card rounded-xl border border-white/10 p-8 text-center">
-        <p className="text-muted">Keine Daten vorhanden</p>
+        <p className="text-muted text-sm">📊 Performance-Daten werden geladen...</p>
       </div>
     )
   }
@@ -200,31 +232,31 @@ export default function ScoreTracker({ userId }) {
         <StatCard
           icon={Award}
           label="MVP Awards"
-          value={stats.mvp_count}
+          value={stats?.mvp_count || 0}
           color="text-yellow-500"
         />
         <StatCard
           icon={Heart}
           label="High Fives"
-          value={stats.high_fives_received}
+          value={stats?.high_fives_received || 0}
           color="text-red-500"
         />
         <StatCard
           icon={Users}
           label="Sessions"
-          value={stats.sessions_played}
+          value={stats?.sessions_played || 0}
           color="text-blue-500"
         />
         <StatCard
           icon={Zap}
           label="Zuverlässigkeit"
-          value={`${Math.round(stats.reliability_score)}%`}
+          value={`${Math.round(stats?.reliability_score || 50)}%`}
           color="text-green-500"
         />
         <StatCard
           icon={Target}
           label="Bewertung"
-          value={stats.avg_rating?.toFixed(1) || '0.0'}
+          value={(stats?.avg_rating || 0).toFixed(1) || '0.0'}
           color="text-purple-500"
         />
         <StatCard
