@@ -135,8 +135,9 @@ async function fetchSportsVenues(bounds) {
     );
     out center tags;
   `
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
+  const res = await fetch('/api/overpass', {
     method: 'POST',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     body: query,
   })
   if (!res.ok) {
