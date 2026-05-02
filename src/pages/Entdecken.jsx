@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Search, Filter, Plus, RefreshCw, List, Map, LocateFixed, Loader2 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { isMissingSupabaseSchema, supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORTARTEN, GENDER_FILTERS } from '../lib/constants'
+import { SPORTARTEN, SPORT_EMOJIS, GENDER_FILTERS } from '../lib/constants'
 import SessionCard from '../components/SessionCard'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -29,6 +29,7 @@ export default function Entdecken() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [userCoords, setUserCoords] = useState(null) // { lat, lng }
   const cityDebounce = useRef(null)
+  const simpleSessionQuery = useRef(false)
 
   // Filters
   const [filters, setFilters] = useState({
@@ -95,31 +96,60 @@ export default function Entdecken() {
     setError(null)
 
     try {
-      let query = supabase
-        .from('sessions')
-        .select(`
-          *,
-          creator:users!creator_id(id, name, city, avatar_url),
-          session_participants(user_id, waitlist)
-        `)
-        .order('date', { ascending: true })
-        .order('time', { ascending: true })
+      const applyFilters = (baseQuery) => {
+        let query = baseQuery
+          .order('date', { ascending: true })
+          .order('time', { ascending: true })
 
-      const today = new Date().toISOString().split('T')[0]
-      query = query.gte('date', today)
+        const today = new Date().toISOString().split('T')[0]
+        query = query.gte('date', today)
 
-      if (filters.sport) query = query.eq('sport', filters.sport)
-      if (!filters.radius && filters.city) query = query.ilike('location', `%${filters.city}%`)
-      if (filters.gender) query = query.eq('gender_filter', filters.gender)
-      if (filters.date) query = query.eq('date', filters.date)
+        if (filters.sport) query = query.eq('sport', filters.sport)
+        if (!filters.radius && filters.city) query = query.ilike('location', `%${filters.city}%`)
+        if (filters.gender) query = query.eq('gender_filter', filters.gender)
+        if (filters.date) query = query.eq('date', filters.date)
 
-      const { data, error: fetchError } = await query
-      if (fetchError) throw fetchError
+        return query
+      }
 
-      let enriched = (data || []).map((s) => ({
-        ...s,
-        participant_count: s.session_participants?.filter(p => !p.waitlist).length ?? 0,
-      }))
+      const fetchSimpleSessions = async () => {
+        const result = await applyFilters(supabase.from('sessions').select('*'))
+        if (result.error) throw result.error
+        return (result.data || []).map((s) => ({
+          ...s,
+          creator: null,
+          session_participants: [],
+          participant_count: 0,
+        }))
+      }
+
+      let enriched = []
+
+      if (simpleSessionQuery.current) {
+        enriched = await fetchSimpleSessions()
+      } else {
+        const { data, error: fetchError } = await applyFilters(
+          supabase
+            .from('sessions')
+            .select(`
+              *,
+              creator:users!creator_id(id, name, city, avatar_url),
+              session_participants(user_id)
+            `)
+        )
+
+        if (fetchError) {
+          if (!isMissingSupabaseSchema(fetchError)) throw fetchError
+          simpleSessionQuery.current = true
+          enriched = await fetchSimpleSessions()
+        } else {
+          enriched = (data || []).map((s) => ({
+            ...s,
+            participant_count: s.session_participants?.length ?? 0,
+          }))
+        }
+      }
+
 
       // Client-side radius filter
       if (filters.radius && userCoords) {
@@ -135,7 +165,13 @@ export default function Entdecken() {
 
       setSessions(enriched)
     } catch (err) {
-      console.error('Fehler beim Laden der Sessions:', err)
+      setSessions([])
+      if (isMissingSupabaseSchema(err)) {
+        console.warn('Sessions-Tabelle oder Relationen fehlen:', err)
+        setError(null)
+        return
+      }
+      console.warn('Fehler beim Laden der Sessions:', err)
       setError('Sessions konnten nicht geladen werden.')
     } finally {
       setLoading(false)
@@ -213,7 +249,7 @@ export default function Entdecken() {
       </div>
 
       {/* Filter bar */}
-      <div className="bg-card rounded-2xl border border-white/10 p-4 mb-6">
+      <div className="bg-card/95 rounded-2xl border border-white/10 p-5 sm:p-6 mb-8 shadow-xl shadow-black/10">
         {/* Mobile: toggle */}
         <div className="flex items-center justify-between md:hidden mb-3">
           <button
@@ -238,85 +274,107 @@ export default function Entdecken() {
           )}
         </div>
 
-        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 ${filtersOpen ? 'block' : 'hidden md:grid'}`}>
+        <div className={`${filtersOpen ? 'block' : 'hidden md:block'}`}>
           {/* Sport */}
-          <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">Sportart</label>
-            <select
-              value={filters.sport}
-              onChange={(e) => handleFilterChange('sport', e.target.value)}
-              className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
-            >
-              <option value="">Alle Sportarten</option>
-              {SPORTARTEN.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-
-          {/* City */}
-          <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">Stadt / PLZ</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-              <input
-                type="text"
-                placeholder="z.B. Hamburg"
-                value={filters.city}
-                onChange={(e) => handleFilterChange('city', e.target.value)}
-                className="w-full bg-dark border border-white/10 rounded-xl pl-9 pr-9 py-2.5 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors"
-              />
+          <div className="mb-5">
+            <label className="text-muted text-xs font-bold uppercase tracking-wide">Sportart</label>
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               <button
-                onClick={handleLocateMe}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-primary transition-colors"
-                title="Meinen Standort nutzen"
+                type="button"
+                onClick={() => handleFilterChange('sport', '')}
+                className={`h-11 rounded-xl border px-3 text-sm font-bold transition-all ${
+                  !filters.sport
+                    ? 'bg-primary text-dark border-primary shadow-lg shadow-primary/20'
+                    : 'bg-dark/70 text-muted border-white/10 hover:border-white/25 hover:text-white'
+                }`}
               >
-                {geoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+                Alle
               </button>
+              {SPORTARTEN.map((sport) => (
+                <button
+                  key={sport}
+                  type="button"
+                  onClick={() => handleFilterChange('sport', filters.sport === sport ? '' : sport)}
+                  className={`h-11 rounded-xl border px-3 text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                    filters.sport === sport
+                      ? 'bg-primary text-dark border-primary shadow-lg shadow-primary/20'
+                      : 'bg-dark/70 text-muted border-white/10 hover:border-white/25 hover:text-white'
+                  }`}
+                >
+                  <span>{SPORT_EMOJIS[sport]}</span>
+                  <span className="truncate">{sport}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Radius */}
-          <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">Umkreis</label>
-            <select
-              value={filters.radius}
-              onChange={(e) => handleFilterChange('radius', e.target.value)}
-              className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
-            >
-              <option value="">Kein Limit</option>
-              <option value="5">5 km</option>
-              <option value="10">10 km</option>
-              <option value="25">25 km</option>
-              <option value="50">50 km</option>
-            </select>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            {/* City */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-muted text-xs font-bold uppercase tracking-wide">Stadt / PLZ</label>
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="z.B. Hamburg"
+                  value={filters.city}
+                  onChange={(e) => handleFilterChange('city', e.target.value)}
+                  className="w-full h-12 bg-dark/80 border border-white/10 rounded-xl pl-10 pr-10 text-white text-sm placeholder-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors"
+                />
+                <button
+                  onClick={handleLocateMe}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-muted hover:text-primary transition-colors"
+                  title="Meinen Standort nutzen"
+                >
+                  {geoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
-          {/* Gender */}
-          <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">Geschlecht</label>
-            <select
-              value={filters.gender}
-              onChange={(e) => handleFilterChange('gender', e.target.value)}
-              className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
-            >
-              <option value="">Alle</option>
-              {GENDER_FILTERS.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
+            {/* Radius */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-muted text-xs font-bold uppercase tracking-wide">Umkreis</label>
+              <select
+                value={filters.radius}
+                onChange={(e) => handleFilterChange('radius', e.target.value)}
+                className="h-12 appearance-none bg-dark/80 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors [color-scheme:dark]"
+              >
+                <option value="">Kein Limit</option>
+                <option value="5">5 km</option>
+                <option value="10">10 km</option>
+                <option value="25">25 km</option>
+                <option value="50">50 km</option>
+              </select>
+            </div>
 
-          {/* Date */}
-          <div className="flex flex-col gap-1">
-            <label className="text-muted text-xs font-medium uppercase tracking-wide">Datum</label>
-            <input
-              type="date"
-              value={filters.date}
-              onChange={(e) => handleFilterChange('date', e.target.value)}
-              className="bg-dark border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors [color-scheme:dark]"
-            />
+            {/* Gender */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-muted text-xs font-bold uppercase tracking-wide">Geschlecht</label>
+              <select
+                value={filters.gender}
+                onChange={(e) => handleFilterChange('gender', e.target.value)}
+                className="h-12 appearance-none bg-dark/80 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors [color-scheme:dark]"
+              >
+                <option value="">Alle</option>
+                {GENDER_FILTERS.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-muted text-xs font-bold uppercase tracking-wide">Datum</label>
+              <input
+                type="date"
+                value={filters.date}
+                onChange={(e) => handleFilterChange('date', e.target.value)}
+                className="h-12 bg-dark/80 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors [color-scheme:dark]"
+              />
+            </div>
           </div>
         </div>
 
         {/* Desktop clear filters + view toggle */}
-        <div className="hidden md:flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+        <div className="hidden md:flex items-center justify-between mt-5 pt-5 border-t border-white/5">
           <div className="flex items-center gap-4">
             {activeFilterCount > 0 && (
               <button

@@ -420,10 +420,15 @@ const RADIUS_OPTIONS = [
   { label: '10 km', value: 10 },
 ]
 
+function isMissingSupabaseTable(error) {
+  return error?.code === '42P01' || error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')
+}
+
 export default function Plaetze() {
   const { user } = useAuth()
   const [courts, setCourts] = useState([])
   const [courtsLoading, setCourtsLoading] = useState(true)
+  const [communityTablesMissing, setCommunityTablesMissing] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [sportFilter, setSportFilter] = useState('')
@@ -446,7 +451,15 @@ export default function Plaetze() {
 
   // Load blacklisted OSM venue IDs from Supabase
   useEffect(() => {
-    supabase.from('reported_osm_venues').select('osm_id').then(({ data }) => {
+    supabase.from('reported_osm_venues').select('osm_id').then(({ data, error }) => {
+      if (isMissingSupabaseTable(error)) {
+        setCommunityTablesMissing(true)
+        return
+      }
+      if (error) {
+        console.warn('Gemeldete OSM-Plätze konnten nicht geladen werden:', error)
+        return
+      }
       if (data) setBlacklist(new Set(data.map(r => r.osm_id)))
     })
   }, [])
@@ -464,8 +477,14 @@ export default function Plaetze() {
         .order('created_at', { ascending: false })
       if (error) throw error
       setCourts(data || [])
-    } catch {
-      toast.error('Plätze konnten nicht geladen werden.')
+    } catch (err) {
+      if (isMissingSupabaseTable(err)) {
+        setCommunityTablesMissing(true)
+        setCourts([])
+        return
+      }
+      console.error('Plätze konnten nicht geladen werden:', err)
+      toast.error('Community-Plätze konnten nicht geladen werden.')
     } finally {
       setCourtsLoading(false)
     }
@@ -609,7 +628,13 @@ export default function Plaetze() {
       setFormErrors({})
       setFormOpen(false)
       fetchCourts()
-    } catch {
+    } catch (err) {
+      if (isMissingSupabaseTable(err)) {
+        setCommunityTablesMissing(true)
+        toast.error('Speichern ist noch nicht verfügbar. Supabase-Tabellen fehlen.')
+        return
+      }
+      console.error('Platz konnte nicht gespeichert werden:', err)
       toast.error('Platz konnte nicht gespeichert werden.')
     } finally {
       setSubmitting(false)
@@ -623,6 +648,11 @@ export default function Plaetze() {
       name: venue.name,
       reported_by: user.id,
     })
+    if (isMissingSupabaseTable(error)) {
+      setCommunityTablesMissing(true)
+      toast.error('Melden ist noch nicht verfügbar. Supabase-Tabellen fehlen.')
+      return
+    }
     if (error && error.code !== '23505') {
       toast.error('Meldung fehlgeschlagen.')
       return
@@ -737,7 +767,7 @@ export default function Plaetze() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${!sportFilter ? 'bg-primary text-dark' : 'text-muted hover:text-white'}`}>
                 Alle
               </button>
-              {['Fußball', 'Tennis', 'Basketball', 'Volleyball'].map(s => (
+              {SPORTARTEN.map(s => (
                 <button key={s} onClick={() => setSportFilter(sportFilter === s ? '' : s)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${sportFilter === s ? 'bg-primary text-dark' : 'text-muted hover:text-white'}`}>
                   {SPORT_EMOJIS[s]}
@@ -867,6 +897,15 @@ export default function Plaetze() {
       {/* ===== USER-SUBMITTED COURTS ===== */}
       <div>
         <h2 className="text-white font-bold text-lg mb-4">Von der Community eingetragen</h2>
+
+        {communityTablesMissing && (
+          <div className="bg-card/50 border border-yellow-500/30 rounded-2xl p-4 mb-5">
+            <p className="text-white text-sm font-semibold">Community-Plätze sind noch nicht eingerichtet.</p>
+            <p className="text-muted text-xs mt-1">
+              Die Karte funktioniert trotzdem. Für eingetragene Plätze müssen die Supabase-Tabellen aus <code>supabase-schema.sql</code> im neuen Projekt angelegt werden.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
           <div className="relative flex-1">

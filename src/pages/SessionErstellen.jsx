@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Info, MapPin, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Info, MapPin, Loader2, Calendar, Clock, Users, Target, Minus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORTARTEN, SKILL_LEVELS, GENDER_FILTERS } from '../lib/constants'
+import { SPORTARTEN, SPORT_EMOJIS, SKILL_LEVELS, GENDER_FILTERS } from '../lib/constants'
 
 const SPORT_LEISURE = new Set(['pitch', 'sports_centre', 'stadium', 'fitness_centre', 'swimming_pool', 'ice_rink', 'golf_course', 'track'])
 
@@ -63,8 +63,40 @@ function FormField({ label, required, hint, error, children }) {
   )
 }
 
+function SectionCard({ icon: Icon, title, children }) {
+  return (
+    <section className="bg-card/95 rounded-2xl border border-white/10 p-5 sm:p-6 flex flex-col gap-5 shadow-xl shadow-black/10">
+      <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+        {Icon && (
+          <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/20 flex items-center justify-center text-primary">
+            <Icon className="w-5 h-5" />
+          </div>
+        )}
+        <h2 className="text-white font-black text-xl">{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function ChoiceButton({ active, children, onClick, className = '' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+        active
+          ? 'bg-primary text-dark border-primary shadow-lg shadow-primary/20'
+          : 'bg-dark/70 text-muted border-white/10 hover:border-white/25 hover:text-white'
+      } ${className}`}
+    >
+      {children}
+    </button>
+  )
+}
+
 const inputClass =
-  'w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors'
+  'w-full h-12 bg-dark/80 border border-white/10 rounded-xl px-4 text-white text-sm placeholder-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors'
 
 const inputErrorClass = 'border-red-500'
 
@@ -269,7 +301,7 @@ export default function SessionErstellen() {
   if (authLoading) return null
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
@@ -280,20 +312,22 @@ export default function SessionErstellen() {
       </button>
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-white mb-2">Session erstellen</h1>
-        <p className="text-muted">
-          Bringe Sportler:innen zusammen – fülle das Formular aus und los geht's!
-        </p>
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+        <div>
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-3">Session erstellen</h1>
+          <p className="text-muted text-base sm:text-lg max-w-2xl">
+            Wähle Sportart, Zeit und Ort. Die wichtigsten Felder sind zuerst, Details bleiben optional.
+          </p>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 bg-card/80 border border-white/10 rounded-2xl px-4 py-3">
+          <span className="text-primary font-black text-2xl">{SPORTARTEN.length}</span>
+          <span className="text-muted text-sm">Sportarten verfügbar</span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {/* Basic info */}
-        <div className="bg-card rounded-2xl border border-white/10 p-6 flex flex-col gap-5">
-          <h2 className="text-white font-bold text-lg border-b border-white/10 pb-3">
-            Grundinfo
-          </h2>
-
+        <SectionCard icon={Target} title="Grundinfo">
           <FormField label="Titel" required error={errors.title}>
             <input
               type="text"
@@ -306,18 +340,19 @@ export default function SessionErstellen() {
           </FormField>
 
           <FormField label="Sportart" required error={errors.sport}>
-            <select
-              value={form.sport}
-              onChange={(e) => handleChange('sport', e.target.value)}
-              className={`${inputClass} ${errors.sport ? inputErrorClass : ''}`}
-            >
-              <option value="">Sportart wählen...</option>
-              {SPORTARTEN.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {SPORTARTEN.map((sport) => (
+                <ChoiceButton
+                  key={sport}
+                  active={form.sport === sport}
+                  onClick={() => handleChange('sport', sport)}
+                  className={errors.sport ? 'border-red-500' : ''}
+                >
+                  <span className="text-lg">{SPORT_EMOJIS[sport]}</span>
+                  <span>{sport}</span>
+                </ChoiceButton>
               ))}
-            </select>
+            </div>
           </FormField>
 
           <FormField label="Beschreibung" hint="optional">
@@ -327,48 +362,46 @@ export default function SessionErstellen() {
               onChange={(e) => handleChange('description', e.target.value)}
               rows={4}
               maxLength={1000}
-              className={`${inputClass} resize-none`}
+              className={`${inputClass} h-32 resize-none py-3 leading-relaxed`}
             />
             <p className="text-muted text-xs text-right">
               {form.description.length}/1000
             </p>
           </FormField>
-        </div>
+        </SectionCard>
 
         {/* Date & Time */}
-        <div className="bg-card rounded-2xl border border-white/10 p-6 flex flex-col gap-5">
-          <h2 className="text-white font-bold text-lg border-b border-white/10 pb-3">
-            Datum & Uhrzeit
-          </h2>
-
+        <SectionCard icon={Calendar} title="Datum & Uhrzeit">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <FormField label="Datum" required error={errors.date}>
-              <input
-                type="date"
-                min={today}
-                value={form.date}
-                onChange={(e) => handleChange('date', e.target.value)}
-                className={`${inputClass} [color-scheme:dark] ${errors.date ? inputErrorClass : ''}`}
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  min={today}
+                  value={form.date}
+                  onChange={(e) => handleChange('date', e.target.value)}
+                  className={`${inputClass} [color-scheme:dark] ${errors.date ? inputErrorClass : ''}`}
+                />
+                <Calendar className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              </div>
             </FormField>
 
             <FormField label="Uhrzeit" required error={errors.time}>
-              <input
-                type="time"
-                value={form.time}
-                onChange={(e) => handleChange('time', e.target.value)}
-                className={`${inputClass} [color-scheme:dark] ${errors.time ? inputErrorClass : ''}`}
-              />
+              <div className="relative">
+                <input
+                  type="time"
+                  value={form.time}
+                  onChange={(e) => handleChange('time', e.target.value)}
+                  className={`${inputClass} [color-scheme:dark] ${errors.time ? inputErrorClass : ''}`}
+                />
+                <Clock className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              </div>
             </FormField>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Location */}
-        <div className="bg-card rounded-2xl border border-white/10 p-6 flex flex-col gap-5">
-          <h2 className="text-white font-bold text-lg border-b border-white/10 pb-3">
-            Ort
-          </h2>
-
+        <SectionCard icon={MapPin} title="Ort">
           <FormField label="Ort / Platzbeschreibung" required error={errors.location}>
             <div className="relative" ref={suggestionRef}>
               <div className="relative">
@@ -469,61 +502,77 @@ export default function SessionErstellen() {
               )}
             </div>
           </FormField>
-        </div>
+        </SectionCard>
 
         {/* Session settings */}
-        <div className="bg-card rounded-2xl border border-white/10 p-6 flex flex-col gap-5">
-          <h2 className="text-white font-bold text-lg border-b border-white/10 pb-3">
-            Session-Einstellungen
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <SectionCard icon={Users} title="Session-Einstellungen">
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_1fr] gap-5">
             <FormField
               label="Max. Teilnehmer:innen"
               required
               error={errors.max_players}
             >
-              <input
-                type="number"
-                min={2}
-                max={100}
-                value={form.max_players}
-                onChange={(e) => handleChange('max_players', e.target.value)}
-                className={`${inputClass} ${errors.max_players ? inputErrorClass : ''}`}
-              />
+              <div className={`h-12 bg-dark/80 border rounded-xl flex items-center overflow-hidden ${
+                errors.max_players ? inputErrorClass : 'border-white/10'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => handleChange('max_players', Math.max(2, Number(form.max_players || 2) - 1))}
+                  className="h-full w-12 flex items-center justify-center text-muted hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  type="number"
+                  min={2}
+                  max={100}
+                  value={form.max_players}
+                  onChange={(e) => handleChange('max_players', e.target.value)}
+                  className="w-full bg-transparent text-center text-white font-bold text-base focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleChange('max_players', Math.min(100, Number(form.max_players || 2) + 1))}
+                  className="h-full w-12 flex items-center justify-center text-muted hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </FormField>
 
             <FormField label="Geschlecht" required error={errors.gender_filter}>
-              <select
-                value={form.gender_filter}
-                onChange={(e) => handleChange('gender_filter', e.target.value)}
-                className={`${inputClass} ${errors.gender_filter ? inputErrorClass : ''}`}
-              >
-                {GENDER_FILTERS.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
+              <div className="grid grid-cols-3 gap-2">
+                {GENDER_FILTERS.map((gender) => (
+                  <ChoiceButton
+                    key={gender}
+                    active={form.gender_filter === gender}
+                    onClick={() => handleChange('gender_filter', gender)}
+                    className="min-w-0"
+                  >
+                    <span className="truncate">{gender.replace('Nur ', '')}</span>
+                  </ChoiceButton>
                 ))}
-              </select>
+              </div>
             </FormField>
 
             <FormField label="Skill-Level" required error={errors.skill_level}>
-              <select
-                value={form.skill_level}
-                onChange={(e) => handleChange('skill_level', e.target.value)}
-                className={`${inputClass} ${errors.skill_level ? inputErrorClass : ''}`}
-              >
-                {SKILL_LEVELS.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
+              <div className="grid grid-cols-3 gap-2">
+                {SKILL_LEVELS.map((level) => (
+                  <ChoiceButton
+                    key={level}
+                    active={form.skill_level === level}
+                    onClick={() => handleChange('skill_level', level)}
+                    className="min-w-0"
+                  >
+                    <span className="truncate">{level}</span>
+                  </ChoiceButton>
                 ))}
-              </select>
+              </div>
             </FormField>
           </div>
 
           {/* Equipment toggle */}
-          <div className="flex items-center justify-between p-4 bg-dark rounded-xl border border-white/10">
+          <div className="flex items-center justify-between gap-4 p-4 bg-dark/80 rounded-xl border border-white/10">
             <div>
               <p className="text-white text-sm font-medium">Ausrüstung vorhanden?</p>
               <p className="text-muted text-xs mt-0.5">
@@ -546,14 +595,14 @@ export default function SessionErstellen() {
               />
             </button>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Submit */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="sticky bottom-0 z-20 -mx-4 sm:mx-0 bg-dark/95 backdrop-blur-md border-t border-white/10 sm:border sm:border-white/10 sm:rounded-2xl p-4 flex flex-col sm:flex-row gap-3">
           <button
             type="submit"
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 bg-primary text-dark font-bold py-4 rounded-xl hover:bg-green-400 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg shadow-primary/20"
+            className="flex-1 min-h-14 flex items-center justify-center gap-2 bg-primary text-dark font-black rounded-xl hover:bg-green-400 transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg shadow-primary/20"
           >
             {submitting ? (
               <>
@@ -570,7 +619,7 @@ export default function SessionErstellen() {
 
           <Link
             to="/entdecken"
-            className="flex items-center justify-center gap-2 border-2 border-white/20 text-white font-bold py-4 px-6 rounded-xl hover:border-primary hover:text-primary transition-colors"
+            className="min-h-14 flex items-center justify-center gap-2 border border-white/20 text-white font-bold px-6 rounded-xl hover:border-primary hover:text-primary transition-colors"
           >
             Abbrechen
           </Link>

@@ -133,11 +133,20 @@ export default function Login() {
       toast.success('Registrierung erfolgreich! Willkommen bei Sportis!')
       navigate('/entdecken')
     } catch (err) {
+      console.error('Registrierung fehlgeschlagen:', err)
       const msg = err?.message || ''
       if (msg.includes('User already registered') || msg.includes('already been registered')) {
         toast.error('Diese E-Mail-Adresse ist bereits registriert.')
       } else if (msg.includes('Password should be')) {
         toast.error('Passwort zu schwach. Mindestens 6 Zeichen verwenden.')
+      } else if (msg.includes('Database error saving new user')) {
+        toast.error('Registrierung fehlgeschlagen: Datenbank-Profil konnte nicht erstellt werden.')
+      } else if (msg.includes('Signups not allowed')) {
+        toast.error('Registrierung ist in Supabase aktuell deaktiviert.')
+      } else if (msg.includes('Invalid API key') || msg.includes('JWT')) {
+        toast.error('Registrierung fehlgeschlagen: Supabase API-Key ist ungültig.')
+      } else if (msg.includes('rate limit')) {
+        toast.error('Zu viele Registrierungsversuche. Bitte später erneut versuchen.')
       } else {
         toast.error('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
       }
@@ -310,7 +319,7 @@ export default function Login() {
                 onChange={(e) =>
                   setRegisterData({ ...registerData, gender: e.target.value })
                 }
-                className="w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary transition-colors appearance-none"
+                className="w-full bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors appearance-none"
               >
                 <option value="">Bitte wählen (optional)</option>
                 <option value="Weiblich">Weiblich</option>

@@ -7,15 +7,14 @@ const floatingEmojis = [
   { emoji: '🎾', style: 'top-32 right-[10%] text-4xl animate-float-delay-1' },
   { emoji: '🏀', style: 'bottom-20 left-[12%] text-5xl animate-float-delay-2' },
   { emoji: '🏐', style: 'top-1/2 right-[6%] text-4xl animate-float-delay-3' },
-  { emoji: '🏸', style: 'bottom-32 right-[20%] text-3xl animate-float' },
   { emoji: '🏓', style: 'top-24 left-[30%] text-3xl animate-float-delay-2' },
 ]
 
 const features = [
   {
     icon: '🏃',
-    title: 'Alle Sportarten',
-    desc: 'Fußball, Tennis, Basketball und 7 weitere Sportarten – für jeden etwas dabei.',
+    title: 'Fokussierte Sportauswahl',
+    desc: 'Fußball, Volleyball, Basketball, Tennis und Tischtennis – schnell finden, schnell loslegen.',
   },
   {
     icon: '👥',
@@ -111,7 +110,7 @@ export default function Landing() {
           {/* Social proof */}
           <div className="mt-14 flex flex-col sm:flex-row items-center justify-center gap-8 text-muted text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-primary font-bold text-2xl">10+</span>
+              <span className="text-primary font-bold text-2xl">5</span>
               <span>Sportarten</span>
             </div>
             <div className="w-px h-8 bg-white/10 hidden sm:block" />
@@ -197,7 +196,7 @@ export default function Landing() {
               Deine Sportart ist dabei
             </h2>
             <p className="text-muted text-lg max-w-xl mx-auto">
-              10 Sportarten und wachsend – von Fußball bis Padel.
+              Fußball, Volleyball, Basketball, Tennis und Tischtennis.
             </p>
           </div>
 

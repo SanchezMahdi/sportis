@@ -13,12 +13,11 @@ import {
 } from 'lucide-react'
 import { parseISO, isFuture, isPast } from 'date-fns'
 import toast from 'react-hot-toast'
-import { supabase } from '../lib/supabase'
+import { isMissingSupabaseSchema, isNoSupabaseRow, supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { SPORTARTEN, SPORT_EMOJIS } from '../lib/constants'
 import LoadingSpinner from '../components/LoadingSpinner'
 import SessionCard from '../components/SessionCard'
-import ScoreTracker from '../components/ScoreTracker'
 
 function Avatar({ name, avatarUrl, size = 'xl' }) {
   const sizes = {
@@ -79,6 +78,8 @@ export default function Profil() {
 
   const [profile, setProfile] = useState(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
+  const [databaseSetupMissing, setDatabaseSetupMissing] = useState(false)
+  const [sessionWarning, setSessionWarning] = useState('')
   const [activeTab, setActiveTab] = useState('upcoming')
 
   const [mySessions, setMySessions] = useState([])
@@ -107,6 +108,7 @@ export default function Profil() {
     if (!user) return
     setLoadingProfile(true)
     try {
+      setDatabaseSetupMissing(false)
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -114,6 +116,7 @@ export default function Profil() {
         .single()
 
       if (error) throw error
+      setDatabaseSetupMissing(false)
       setProfile(data)
       setEditForm({
         name: data.name || '',
@@ -122,6 +125,51 @@ export default function Profil() {
         sports: data.sports || [],
       })
     } catch (err) {
+      if (isMissingSupabaseSchema(err)) {
+        setDatabaseSetupMissing(true)
+        setProfile(null)
+        return
+      }
+
+      if (isNoSupabaseRow(err)) {
+        try {
+          const fallbackName =
+            user.user_metadata?.name ||
+            user.email?.split('@')[0] ||
+            'Sportis Nutzer'
+          const { data, error } = await supabase
+            .from('users')
+            .upsert({
+              id: user.id,
+              email: user.email,
+              name: fallbackName,
+              city: null,
+              gender: null,
+              sports: [],
+            })
+            .select()
+            .single()
+
+          if (error) throw error
+          setDatabaseSetupMissing(false)
+          setProfile(data)
+          setEditForm({
+            name: data.name || '',
+            city: data.city || '',
+            gender: data.gender || '',
+            sports: data.sports || [],
+          })
+          return
+        } catch (createErr) {
+          if (isMissingSupabaseSchema(createErr)) {
+            setDatabaseSetupMissing(true)
+            setProfile(null)
+            return
+          }
+          console.error('Profil konnte nicht automatisch erstellt werden:', createErr)
+        }
+      }
+
       console.error('Fehler beim Laden des Profils:', err)
       toast.error('Profil konnte nicht geladen werden.')
     } finally {
@@ -132,9 +180,10 @@ export default function Profil() {
   const fetchSessions = useCallback(async () => {
     if (!user) return
     setLoadingSessions(true)
+    setSessionWarning('')
     try {
       // Sessions the user joined
-      const { data: participantData } = await supabase
+      const { data: participantData, error: participantError } = await supabase
         .from('session_participants')
         .select(`
           session:sessions(
@@ -143,6 +192,8 @@ export default function Profil() {
           )
         `)
         .eq('user_id', user.id)
+
+      if (participantError) throw participantError
 
       const joined = (participantData || [])
         .map((p) => p.session)
@@ -155,7 +206,7 @@ export default function Profil() {
       setJoinedSessions(joined)
 
       // Sessions the user created (via participants to avoid creator_id ambiguity)
-      const { data: createdData } = await supabase
+      const { data: createdData, error: createdError } = await supabase
         .from('sessions')
         .select(`
           *,
@@ -164,6 +215,8 @@ export default function Profil() {
         .eq('creator_id', user.id)
         .order('date', { ascending: true })
 
+      if (createdError) throw createdError
+
       setMySessions(
         (createdData || []).map((s) => ({
           ...s,
@@ -171,7 +224,15 @@ export default function Profil() {
         }))
       )
     } catch (err) {
-      console.error('Fehler beim Laden der Sessions:', err)
+      setJoinedSessions([])
+      setMySessions([])
+      if (isMissingSupabaseSchema(err)) {
+        setSessionWarning('Session-Daten sind noch nicht eingerichtet. Dein Profil bleibt trotzdem nutzbar.')
+        console.warn('Session-Tabellen oder Relationen fehlen:', err)
+        return
+      }
+      setSessionWarning('Sessions konnten gerade nicht geladen werden.')
+      console.warn('Fehler beim Laden der Sessions:', err)
     } finally {
       setLoadingSessions(false)
     }
@@ -320,6 +381,33 @@ export default function Profil() {
 
   if (authLoading || loadingProfile) return <LoadingSpinner fullScreen />
 
+  if (databaseSetupMissing) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-card rounded-2xl border border-yellow-500/30 p-6 sm:p-8">
+          <h1 className="text-white text-2xl font-black mb-3">Supabase-Datenbank fehlt</h1>
+          <p className="text-muted text-sm leading-relaxed">
+            Dein Login funktioniert, aber die Profil-Tabelle im aktuell verbundenen Supabase-Projekt ist nicht erreichbar.
+            Prüfe, ob die App mit dem richtigen Supabase-Projekt verbunden ist und ob
+            <code className="mx-1 text-primary">public.users</code> angelegt wurde.
+          </p>
+          <p className="text-muted text-sm leading-relaxed mt-3">
+            Öffne in Supabase den SQL Editor und führe zuerst
+            <code className="mx-1 text-primary">supabase-schema.sql</code> aus. Danach die Migrationen
+            <code className="mx-1 text-primary">001_score_tracking.sql</code> und
+            <code className="mx-1 text-primary">002_court_bookings.sql</code>.
+          </p>
+          <Link
+            to="/entdecken"
+            className="inline-flex mt-6 bg-primary text-dark font-bold text-sm px-5 py-3 rounded-xl hover:bg-green-400 transition-colors"
+          >
+            Zurück zur App
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Profile header */}
@@ -369,7 +457,7 @@ export default function Profil() {
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary transition-colors"
+                  className="bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors appearance-none"
                   maxLength={100}
                 />
               </div>
@@ -533,12 +621,6 @@ export default function Profil() {
         )}
       </div>
 
-      {/* Score Tracker Section - NEW */}
-      <div className="my-8">
-        <h2 className="text-2xl font-black text-white mb-6">📊 Performance Statistiken</h2>
-        <ScoreTracker userId={user?.id} />
-      </div>
-
       {/* Tabs */}
       <div className="bg-card rounded-2xl border border-white/10 overflow-hidden">
         <div className="flex border-b border-white/10 overflow-x-auto">
@@ -566,6 +648,12 @@ export default function Profil() {
         </div>
 
         <div className="p-6">
+          {sessionWarning && (
+            <div className="mb-5 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+              <p className="text-yellow-100 text-sm">{sessionWarning}</p>
+            </div>
+          )}
+
           {loadingSessions ? (
             <LoadingSpinner />
           ) : (

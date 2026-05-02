@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { getAuthRedirectUrl, isMissingSupabaseSchema, supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
@@ -35,6 +35,7 @@ export function AuthProvider({ children }) {
       email,
       password,
       options: {
+        emailRedirectTo: getAuthRedirectUrl('/entdecken'),
         data: {
           name: userData.name,
         },
@@ -55,7 +56,11 @@ export function AuthProvider({ children }) {
       })
 
       if (profileError) {
-        console.error('Fehler beim Erstellen des Profils:', profileError)
+        if (isMissingSupabaseSchema(profileError)) {
+          console.warn('Profil-Tabelle fehlt, Auth-Registrierung war dennoch erfolgreich:', profileError)
+        } else {
+          console.warn('Fehler beim Erstellen des Profils:', profileError)
+        }
       }
     }
 

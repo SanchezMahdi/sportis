@@ -1,14 +1,9 @@
 export const SPORTARTEN = [
   'Fußball',
-  'Tennis',
-  'Basketball',
   'Volleyball',
-  'Padel',
-  'Badminton',
+  'Basketball',
+  'Tennis',
   'Tischtennis',
-  'Hockey',
-  'Rugby',
-  'Sonstige',
 ]
 
 export const SKILL_LEVELS = ['Anfänger', 'Mittel', 'Fortgeschritten']
@@ -17,15 +12,10 @@ export const GENDER_FILTERS = ['Gemischt', 'Nur Frauen', 'Nur Männer']
 
 export const SPORT_EMOJIS = {
   Fußball: '⚽',
-  Tennis: '🎾',
-  Basketball: '🏀',
   Volleyball: '🏐',
-  Padel: '🏓',
-  Badminton: '🏸',
+  Basketball: '🏀',
+  Tennis: '🎾',
   Tischtennis: '🏓',
-  Hockey: '🏑',
-  Rugby: '🏉',
-  Sonstige: '🏃',
 }
 
 export const SKILL_COLORS = {

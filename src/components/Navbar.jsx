@@ -4,7 +4,7 @@ import { Zap, Menu, X, Plus, LogOut, User, Bell, Calendar } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isMissingSupabaseSchema, supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
 function NotificationItem({ n, onClick }) {
@@ -45,36 +45,59 @@ export default function Navbar() {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    if (!user) return
-    const { data } = await supabase
+    if (!user) return false
+    const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20)
+
+    if (error) {
+      setNotifications([])
+      if (isMissingSupabaseSchema(error)) {
+        console.warn('Notifications-Tabelle fehlt oder ist nicht erreichbar:', error)
+        return false
+      }
+      console.warn('Benachrichtigungen konnten nicht geladen werden:', error)
+      return false
+    }
+
     setNotifications(data || [])
+    return true
   }
 
   useEffect(() => {
     if (!user) return
-    fetchNotifications()
+    let active = true
+    let channel = null
 
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user.id}`,
-      }, (payload) => {
-        setNotifications((prev) => [payload.new, ...prev])
-        toast(`🔔 ${payload.new.message}`, {
-          style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+    const setupNotifications = async () => {
+      const available = await fetchNotifications()
+      if (!active || !available) return
+
+      channel = supabase
+        .channel(`notifications-${user.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          setNotifications((prev) => [payload.new, ...prev])
+          toast(`🔔 ${payload.new.message}`, {
+            style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+          })
         })
-      })
-      .subscribe()
+        .subscribe()
+    }
 
-    return () => supabase.removeChannel(channel)
+    setupNotifications()
+
+    return () => {
+      active = false
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [user])
 
   // Close dropdown on outside click
@@ -92,7 +115,10 @@ export default function Navbar() {
     // Mark as read immediately in UI
     setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
     if (!n.read) {
-      await supabase.from('notifications').update({ read: true }).eq('id', n.id).eq('user_id', user.id)
+      const { error } = await supabase.from('notifications').update({ read: true }).eq('id', n.id).eq('user_id', user.id)
+      if (error && !isMissingSupabaseSchema(error)) {
+        console.warn('Benachrichtigung konnte nicht aktualisiert werden:', error)
+      }
     }
     if (n.session_id) {
       navigate(`/session/${n.session_id}`)
@@ -103,11 +129,14 @@ export default function Navbar() {
   const markAllRead = async () => {
     if (unreadCount === 0) return
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ read: true })
       .eq('user_id', user.id)
       .or('read.eq.false,read.is.null')
+    if (error && !isMissingSupabaseSchema(error)) {
+      console.warn('Benachrichtigungen konnten nicht aktualisiert werden:', error)
+    }
   }
 
   const handleSignOut = async () => {
@@ -141,7 +170,6 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <NavLink to="/entdecken" className={navLinkClass}>Entdecken</NavLink>
             <NavLink to="/plaetze" className={navLinkClass}>Plätze</NavLink>
-            <NavLink to="/ranking" className={navLinkClass}>Ranking</NavLink>
             {user && <NavLink to="/dashboard" className={navLinkClass}>Meine Sessions</NavLink>}
             {user && <NavLink to="/profil" className={navLinkClass}>Profil</NavLink>}
           </div>
@@ -279,9 +307,6 @@ export default function Navbar() {
             </NavLink>
             <NavLink to="/plaetze" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
               Plätze
-            </NavLink>
-            <NavLink to="/ranking" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>
-              Ranking
             </NavLink>
             {user && (
               <NavLink to="/dashboard" className={({ isActive }) => `text-base font-medium py-2 transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`} onClick={closeMenu}>

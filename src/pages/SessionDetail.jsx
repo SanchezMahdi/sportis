@@ -118,7 +118,7 @@ export default function SessionDetail() {
         .from('sessions')
         .select(`
           *,
-          creator:users!creator_id(id, name, city, avatar_url, reliability_score, mvp_count, high_fives_received)
+          creator:users!creator_id(id, name, city, avatar_url)
         `)
         .eq('id', id)
         .single()
@@ -163,19 +163,8 @@ export default function SessionDetail() {
   }, [id])
 
   const fetchJoinRequests = useCallback(async () => {
-    if (!user) return
-    try {
-      const { data } = await supabase
-        .from('join_requests')
-        .select('*, user:users(id, name, city, avatar_url)')
-        .eq('session_id', id)
-      if (!data) return
-      const own = data.find((r) => r.user_id === user.id)
-      setJoinRequest(own || null)
-      setPendingRequests(data.filter((r) => r.status === 'pending' && r.user_id !== user.id))
-    } catch (err) {
-      console.error('Join requests konnten nicht geladen werden:', err)
-    }
+    setJoinRequest(null)
+    setPendingRequests([])
   }, [id, user])
 
   const fetchEquipment = useCallback(async () => {
@@ -258,20 +247,15 @@ export default function SessionDetail() {
     if (!user) { navigate('/login'); return }
     setJoining(true)
     try {
-      const { error } = await supabase.rpc('request_join_session', { p_session_id: id })
+      const { error } = await supabase.from('session_participants').insert({
+        session_id: id,
+        user_id: user.id,
+      })
       if (error) throw error
-      // If +1, insert a second request marker
-      if (plusOne) {
-        await supabase.from('session_participants').upsert({
-          session_id: id,
-          user_id: user.id,
-          plus_one: true,
-        }, { onConflict: 'session_id,user_id', ignoreDuplicates: false })
-      }
-      toast.success(plusOne ? 'Anfrage für 2 Personen gesendet!' : 'Anfrage gesendet! Der Ersteller wird benachrichtigt.')
-      await fetchJoinRequests()
+      toast.success('Du bist der Session beigetreten!')
+      await fetchParticipants()
     } catch (err) {
-      toast.error(err.message || 'Anfrage konnte nicht gesendet werden.')
+      toast.error(err.message || 'Beitritt fehlgeschlagen.')
     } finally {
       setJoining(false)
     }
@@ -299,10 +283,13 @@ export default function SessionDetail() {
     if (!window.confirm('Session wirklich verlassen?')) return
     setJoining(true)
     try {
-      const { error } = await supabase.rpc('leave_session', { p_session_id: id })
+      const { error } = await supabase
+        .from('session_participants')
+        .delete()
+        .eq('session_id', id)
+        .eq('user_id', user.id)
       if (error) throw error
       toast.success('Du hast die Session verlassen.')
-      await supabase.rpc('promote_from_waitlist', { p_session_id: id })
       await fetchParticipants()
     } catch (err) {
       toast.error(err.message || 'Fehler beim Verlassen.')
@@ -482,7 +469,7 @@ export default function SessionDetail() {
   if (loading) return <LoadingSpinner fullScreen />
   if (!session) return null
 
-  const inputClass = 'w-full bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors'
+  const inputClass = 'w-full bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors'
 
   const emoji = SPORT_EMOJIS[session.sport] || '🏃'
   const skillColorClass = SKILL_COLORS[session.skill_level] || 'bg-gray-500'
