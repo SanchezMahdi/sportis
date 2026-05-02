@@ -10,6 +10,11 @@ import {
   Calendar,
   Clock,
   Camera,
+  Mail,
+  MapPinned,
+  ShieldAlert,
+  Sparkles,
+  CalendarCheck,
 } from 'lucide-react'
 import { parseISO, isFuture, isPast } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -24,7 +29,7 @@ function Avatar({ name, avatarUrl, size = 'xl' }) {
     sm: 'w-10 h-10 text-sm',
     md: 'w-14 h-14 text-xl',
     lg: 'w-20 h-20 text-2xl',
-    xl: 'w-24 h-24 text-3xl',
+    xl: 'w-28 h-28 sm:w-32 sm:h-32 text-4xl sm:text-5xl',
   }
   const initials = name
     ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -35,13 +40,13 @@ function Avatar({ name, avatarUrl, size = 'xl' }) {
       <img
         src={avatarUrl}
         alt={name}
-        className={`${sizes[size]} rounded-full object-cover ring-4 ring-primary/30`}
+        className={`${sizes[size]} rounded-3xl object-cover ring-4 ring-primary/20 shadow-2xl shadow-primary/10`}
       />
     )
   }
   return (
     <div
-      className={`${sizes[size]} rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-primary font-black ring-4 ring-primary/10`}
+      className={`${sizes[size]} rounded-3xl bg-primary/15 border border-primary/40 flex items-center justify-center text-primary font-black ring-4 ring-primary/10 shadow-2xl shadow-primary/10`}
     >
       {initials}
     </div>
@@ -52,23 +57,54 @@ function TabButton({ active, onClick, children, count }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-all border-b-2 ${
+      className={`flex items-center justify-center gap-2 min-h-11 px-4 py-2.5 text-sm font-bold rounded-xl transition-all ${
         active
-          ? 'border-primary text-primary'
-          : 'border-transparent text-muted hover:text-white'
+          ? 'bg-primary text-dark shadow-lg shadow-primary/15'
+          : 'text-muted hover:text-white hover:bg-white/5'
       }`}
     >
       {children}
       {count !== undefined && (
         <span
-          className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-            active ? 'bg-primary text-dark' : 'bg-white/10 text-muted'
+          className={`min-w-6 h-6 inline-flex items-center justify-center text-xs px-1.5 rounded-full font-black ${
+            active ? 'bg-dark/15 text-dark' : 'bg-white/10 text-muted'
           }`}
         >
           {count}
         </span>
       )}
     </button>
+  )
+}
+
+function StatTile({ value, label, icon: Icon }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-dark/45 px-4 py-4 min-w-[8.5rem]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-3xl font-black text-white leading-none">{value}</p>
+          <p className="text-muted text-xs font-semibold mt-2">{label}</p>
+        </div>
+        <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmptyState({ icon: Icon, title, text, children }) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-12 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+        <Icon className="w-8 h-8" />
+      </div>
+      <div>
+        <p className="text-white font-bold text-lg mb-2">{title}</p>
+        <p className="text-muted text-sm max-w-sm mx-auto leading-relaxed">{text}</p>
+      </div>
+      {children}
+    </div>
   )
 }
 
@@ -379,6 +415,16 @@ export default function Profil() {
     }
   })
 
+  const completionItems = [
+    Boolean(profile?.name),
+    Boolean(profile?.city),
+    Boolean(profile?.sports?.length),
+    Boolean(profile?.avatar_url),
+  ]
+  const profileCompletion = Math.round(
+    (completionItems.filter(Boolean).length / completionItems.length) * 100
+  )
+
   if (authLoading || loadingProfile) return <LoadingSpinner fullScreen />
 
   if (databaseSetupMissing) {
@@ -409,19 +455,29 @@ export default function Profil() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <p className="text-primary text-sm font-black uppercase tracking-[0.18em]">Konto</p>
+        <h1 className="text-3xl sm:text-4xl font-black text-white mt-2">Dein Profil</h1>
+        <p className="text-muted text-sm mt-2">Verwalte deine Sportarten, Sessions und Kontodaten an einem Ort.</p>
+      </div>
+
       {/* Profile header */}
-      <div className="bg-card rounded-2xl border border-white/10 p-6 sm:p-8 mb-8">
+      <div className="relative overflow-hidden bg-card rounded-3xl border border-white/10 p-5 sm:p-7 mb-6 shadow-2xl shadow-black/10">
+        <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
         {editing ? (
           /* Edit mode */
           <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-white font-bold text-lg">Profil bearbeiten</h2>
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-white font-black text-2xl">Profil bearbeiten</h2>
+                <p className="text-muted text-sm mt-1">Halte deine Angaben aktuell, damit passende Sessions leichter gefunden werden.</p>
+              </div>
+              <div className="flex flex-col xs:flex-row gap-2 sm:flex-row">
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex items-center gap-2 bg-primary text-dark font-bold px-4 py-2 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50 text-sm"
+                  className="flex items-center justify-center gap-2 bg-primary text-dark font-bold px-5 py-3 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50 text-sm"
                 >
                   {saving ? (
                     <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" />
@@ -440,7 +496,7 @@ export default function Profil() {
                       sports: profile?.sports || [],
                     })
                   }}
-                  className="flex items-center gap-2 bg-white/10 text-muted hover:text-white px-4 py-2 rounded-xl transition-colors text-sm"
+                  className="flex items-center justify-center gap-2 bg-dark/60 border border-white/10 text-muted hover:text-white px-5 py-3 rounded-xl transition-colors text-sm"
                 >
                   <X className="w-4 h-4" />
                   Abbrechen
@@ -448,7 +504,7 @@ export default function Profil() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl bg-dark/35 border border-white/10 p-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-white text-sm font-medium">
                   Name <span className="text-primary">*</span>
@@ -457,7 +513,7 @@ export default function Profil() {
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors appearance-none"
+                  className="bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors"
                   maxLength={100}
                 />
               </div>
@@ -469,7 +525,7 @@ export default function Profil() {
                   placeholder="z.B. Berlin"
                   value={editForm.city}
                   onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                  className="bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary transition-colors"
+                  className="bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors"
                   maxLength={100}
                 />
               </div>
@@ -479,7 +535,7 @@ export default function Profil() {
                 <select
                   value={editForm.gender}
                   onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
-                  className="bg-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary transition-colors"
+                  className="bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors"
                 >
                   <option value="">Keine Angabe</option>
                   <option value="Weiblich">Weiblich</option>
@@ -489,7 +545,7 @@ export default function Profil() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3 rounded-2xl bg-dark/35 border border-white/10 p-4">
               <label className="text-white text-sm font-medium">Meine Sportarten</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                 {SPORTARTEN.map((sport) => {
@@ -499,7 +555,7 @@ export default function Profil() {
                       key={sport}
                       type="button"
                       onClick={() => toggleEditSport(sport)}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                      className={`px-3 py-3 rounded-xl text-xs font-bold transition-all border ${
                         selected
                           ? 'bg-primary/20 border-primary text-primary'
                           : 'bg-dark border-white/10 text-muted hover:border-white/30 hover:text-white'
@@ -514,15 +570,15 @@ export default function Profil() {
           </div>
         ) : (
           /* View mode */
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
-            <div className="relative shrink-0 flex flex-col items-center gap-2">
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_auto] gap-6 lg:gap-8 items-center">
+            <div className="relative shrink-0 flex flex-col items-center gap-3">
               <div
                 className="relative group cursor-pointer"
                 onClick={() => avatarInputRef.current?.click()}
                 title="Profilbild ändern"
               >
                 <Avatar name={profile?.name} avatarUrl={profile?.avatar_url} />
-                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 rounded-3xl bg-black/55 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   {uploadingAvatar
                     ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     : <Camera className="w-6 h-6 text-white" />
@@ -540,7 +596,7 @@ export default function Profil() {
                 <button
                   onClick={handleAvatarRemove}
                   disabled={uploadingAvatar}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                  className="text-xs text-red-300 hover:text-red-200 transition-colors disabled:opacity-50"
                 >
                   Bild entfernen
                 </button>
@@ -548,16 +604,19 @@ export default function Profil() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-start gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-5">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-white">
+                  <h2 className="text-4xl sm:text-5xl font-black text-white leading-tight">
                     {profile?.name}
-                  </h1>
-                  <p className="text-muted text-sm mt-0.5">{profile?.email}</p>
+                  </h2>
+                  <div className="flex items-center gap-2 text-muted text-sm mt-2">
+                    <Mail className="w-4 h-4 text-primary" />
+                    <span>{profile?.email}</span>
+                  </div>
                 </div>
                 <button
                   onClick={() => setEditing(true)}
-                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-muted hover:text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors ml-auto sm:ml-0"
+                  className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 border border-white/10 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors sm:ml-auto"
                 >
                   <Edit2 className="w-4 h-4" />
                   Bearbeiten
@@ -565,15 +624,15 @@ export default function Profil() {
               </div>
 
               {/* Info badges */}
-              <div className="flex flex-wrap gap-3 mb-4">
+              <div className="flex flex-wrap gap-2 mb-5">
                 {profile?.city && (
-                  <div className="flex items-center gap-1.5 text-muted text-sm">
-                    <MapPin className="w-4 h-4 text-primary" />
+                  <div className="inline-flex items-center gap-2 rounded-full bg-dark/50 border border-white/10 px-3 py-1.5 text-muted text-sm">
+                    <MapPinned className="w-4 h-4 text-primary" />
                     {profile.city}
                   </div>
                 )}
                 {profile?.gender && (
-                  <div className="flex items-center gap-1.5 text-muted text-sm">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-dark/50 border border-white/10 px-3 py-1.5 text-muted text-sm">
                     <User className="w-4 h-4 text-primary" />
                     {profile.gender}
                   </div>
@@ -586,7 +645,7 @@ export default function Profil() {
                   {profile.sports.map((sport) => (
                     <span
                       key={sport}
-                      className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 text-primary text-xs font-medium px-3 py-1.5 rounded-full"
+                      className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/25 text-primary text-xs font-bold px-3 py-2 rounded-full"
                     >
                       <span>{SPORT_EMOJIS[sport]}</span>
                       {sport}
@@ -594,27 +653,39 @@ export default function Profil() {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted text-sm">
-                  Keine Sportarten angegeben.{' '}
+                <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3">
+                  <p className="text-muted text-sm">
+                    Keine Sportarten angegeben.{' '}
                   <button
                     onClick={() => setEditing(true)}
-                    className="text-primary hover:text-green-400 transition-colors"
+                    className="text-primary hover:text-green-400 transition-colors font-bold"
                   >
                     Jetzt hinzufügen
                   </button>
-                </p>
+                  </p>
+                </div>
               )}
             </div>
 
-            {/* Stats */}
-            <div className="flex sm:flex-col gap-6 sm:gap-4 shrink-0">
-              <div className="text-center">
-                <p className="text-3xl font-black text-primary">{joinedSessions.length}</p>
-                <p className="text-muted text-xs mt-0.5">Beigetreten</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl font-black text-primary">{mySessions.length}</p>
-                <p className="text-muted text-xs mt-0.5">Erstellt</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 w-full lg:w-44">
+              <StatTile value={joinedSessions.length} label="Beigetreten" icon={CalendarCheck} />
+              <StatTile value={mySessions.length} label="Erstellt" icon={Plus} />
+              <div className="rounded-2xl border border-white/10 bg-dark/45 px-4 py-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-2xl font-black text-white leading-none">{profileCompletion}%</p>
+                    <p className="text-muted text-xs font-semibold mt-2">Profilstärke</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${profileCompletion}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -622,8 +693,9 @@ export default function Profil() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-card rounded-2xl border border-white/10 overflow-hidden">
-        <div className="flex border-b border-white/10 overflow-x-auto">
+      <div className="bg-card rounded-3xl border border-white/10 overflow-hidden shadow-2xl shadow-black/10">
+        <div className="p-3 border-b border-white/10 bg-dark/25">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <TabButton
             active={activeTab === 'upcoming'}
             onClick={() => setActiveTab('upcoming')}
@@ -645,9 +717,10 @@ export default function Profil() {
           >
             Meine Sessions
           </TabButton>
+          </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {sessionWarning && (
             <div className="mb-5 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
               <p className="text-yellow-100 text-sm">{sessionWarning}</p>
@@ -662,16 +735,11 @@ export default function Profil() {
               {activeTab === 'upcoming' && (
                 <div>
                   {upcomingSessions.length === 0 ? (
-                    <div className="flex flex-col items-center gap-4 py-12 text-center">
-                      <Calendar className="w-16 h-16 text-primary/20" />
-                      <div>
-                        <p className="text-white font-bold text-lg mb-2">
-                          Keine kommenden Sessions
-                        </p>
-                        <p className="text-muted text-sm max-w-xs mx-auto">
-                          Entdecke Sessions in deiner Stadt oder erstelle eine eigene!
-                        </p>
-                      </div>
+                    <EmptyState
+                      icon={Calendar}
+                      title="Keine kommenden Sessions"
+                      text="Entdecke Sessions in deiner Stadt oder erstelle eine eigene."
+                    >
                       <div className="flex gap-3 mt-2">
                         <Link
                           to="/entdecken"
@@ -687,7 +755,7 @@ export default function Profil() {
                           Erstellen
                         </Link>
                       </div>
-                    </div>
+                    </EmptyState>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {upcomingSessions.map((s) => (
@@ -702,17 +770,11 @@ export default function Profil() {
               {activeTab === 'past' && (
                 <div>
                   {pastSessions.length === 0 ? (
-                    <div className="flex flex-col items-center gap-4 py-12 text-center">
-                      <Clock className="w-16 h-16 text-primary/20" />
-                      <div>
-                        <p className="text-white font-bold text-lg mb-2">
-                          Noch keine vergangenen Sessions
-                        </p>
-                        <p className="text-muted text-sm">
-                          Hier erscheinen deine gespielten Sessions.
-                        </p>
-                      </div>
-                    </div>
+                    <EmptyState
+                      icon={Clock}
+                      title="Noch keine vergangenen Sessions"
+                      text="Hier erscheinen deine gespielten Sessions."
+                    />
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {pastSessions.map((s) => (
@@ -740,16 +802,11 @@ export default function Profil() {
                   </div>
 
                   {mySessions.length === 0 ? (
-                    <div className="flex flex-col items-center gap-4 py-12 text-center">
-                      <Plus className="w-16 h-16 text-primary/20" />
-                      <div>
-                        <p className="text-white font-bold text-lg mb-2">
-                          Noch keine Sessions erstellt
-                        </p>
-                        <p className="text-muted text-sm max-w-xs mx-auto">
-                          Erstelle deine erste Session und bring Sportler:innen zusammen!
-                        </p>
-                      </div>
+                    <EmptyState
+                      icon={Plus}
+                      title="Noch keine Sessions erstellt"
+                      text="Erstelle deine erste Session und bring Sportler:innen zusammen."
+                    >
                       <Link
                         to="/session/erstellen"
                         className="flex items-center gap-2 bg-primary text-dark font-bold px-5 py-3 rounded-xl hover:bg-green-400 transition-colors"
@@ -757,7 +814,7 @@ export default function Profil() {
                         <Plus className="w-4 h-4" />
                         Erste Session erstellen
                       </Link>
-                    </div>
+                    </EmptyState>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {mySessions.map((s) => (
@@ -772,17 +829,26 @@ export default function Profil() {
         </div>
 
         {/* GDPR: Account löschen */}
-        <div className="bg-card rounded-2xl border border-red-500/20 p-5 mt-6">
-          <h3 className="text-red-400 font-semibold mb-2 text-sm">Gefahrenzone</h3>
-          <p className="text-muted text-xs mb-4">
-            Das Löschen deines Kontos entfernt alle deine Daten dauerhaft (DSGVO Art. 17 – Recht auf Vergessenwerden).
-          </p>
-          <button
-            onClick={handleDeleteAccount}
-            className="px-4 py-2 text-sm font-semibold text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors"
-          >
-            Konto dauerhaft löschen
-          </button>
+        <div className="mt-6 rounded-2xl border border-red-500/25 bg-red-500/5 p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-300 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-red-200 font-bold text-sm">Gefahrenzone</h3>
+                <p className="text-muted text-xs mt-1 leading-relaxed">
+                  Das Löschen deines Kontos entfernt alle deine Daten dauerhaft.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDeleteAccount}
+              className="shrink-0 px-4 py-2.5 text-sm font-bold text-red-200 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors"
+            >
+              Konto löschen
+            </button>
+          </div>
         </div>
       </div>
     </div>
