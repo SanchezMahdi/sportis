@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents } from 'react-leaflet'
-import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -299,23 +298,6 @@ function VenuesMap({ venues, userLocation, radiusKm, selectedId, flyTarget, onBo
         </>
       )}
 
-      <MarkerClusterGroup
-        chunkedLoading
-        maxClusterRadius={50}
-        iconCreateFunction={cluster => L.divIcon({
-          html: `<div style="
-            width:40px;height:40px;border-radius:50%;
-            background:#22C55E;color:#0f172a;
-            display:flex;align-items:center;justify-content:center;
-            font-weight:800;font-size:14px;
-            border:3px solid rgba(255,255,255,0.9);
-            box-shadow:0 3px 12px rgba(0,0,0,0.5);
-          ">${cluster.getChildCount()}</div>`,
-          className: '',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-        })}
-      >
       {venues.map(v => (
         <Marker
           key={v.id}
@@ -368,7 +350,6 @@ function VenuesMap({ venues, userLocation, radiusKm, selectedId, flyTarget, onBo
           </Popup>
         </Marker>
       ))}
-      </MarkerClusterGroup>
     </MapContainer>
   )
 }

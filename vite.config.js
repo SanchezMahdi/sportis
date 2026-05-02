@@ -12,7 +12,7 @@ export default defineConfig({
           // Supabase — shared across all pages
           'vendor-supabase': ['@supabase/supabase-js'],
           // Leaflet map — only needed on /plaetze
-          'vendor-leaflet': ['leaflet', 'react-leaflet', 'react-leaflet-cluster'],
+          'vendor-leaflet': ['leaflet', 'react-leaflet'],
         },
       },
     },
