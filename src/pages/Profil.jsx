@@ -9,14 +9,14 @@ export default function Profil() {
   const avatarInputRef = useRef(null)
 
   const [form, setForm] = useState({
-    firstName: 'Mehrab',
-    lastName: 'Bozorgi',
-    email: 'Mehrabbozorgi.business@gmail.com',
-    address: '33062 Zboncak isle',
-    contactNumber: '58077.79',
-    city: 'Mehrab',
-    state: 'Bozorgi',
-    password: 'sbdfbnd65sfdvb s',
+    firstName: '',
+    lastName: '',
+    email: '',
+    address: '',
+    contactNumber: '',
+    city: '',
+    state: '',
+    password: '',
   })
 
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -27,8 +27,8 @@ export default function Profil() {
   useEffect(() => {
     if (user) {
       const parts = (user.user_metadata?.name || user.user_metadata?.full_name || '').split(' ')
-      const fName = parts[0] || 'Mehrab'
-      const lName = parts.slice(1).join(' ') || 'Bozorgi'
+      const fName = parts[0] || ''
+      const lName = parts.slice(1).join(' ') || ''
 
       setForm((prev) => ({
         ...prev,
@@ -112,14 +112,25 @@ export default function Profil() {
     if (user) {
       const parts = (user.user_metadata?.name || '').split(' ')
       setForm({
-        firstName: parts[0] || 'Mehrab',
-        lastName: parts.slice(1).join(' ') || 'Bozorgi',
-        email: user.email || 'Mehrabbozorgi.business@gmail.com',
-        address: '33062 Zboncak isle',
-        contactNumber: '58077.79',
-        city: user.user_metadata?.city || 'Mehrab',
-        state: 'Bozorgi',
-        password: 'sbdfbnd65sfdvb s',
+        firstName: parts[0] || '',
+        lastName: parts.slice(1).join(' ') || '',
+        email: user.email || '',
+        address: '',
+        contactNumber: '',
+        city: user.user_metadata?.city || '',
+        state: '',
+        password: '',
+      })
+    } else {
+      setForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        address: '',
+        contactNumber: '',
+        city: '',
+        state: '',
+        password: '',
       })
     }
     toast('Änderungen zurückgesetzt')
@@ -183,9 +194,10 @@ export default function Profil() {
                 </label>
                 <input 
                   type="text"
+                  placeholder="First name"
                   value={form.firstName}
                   onChange={(e) => handleChange('firstName', e.target.value)}
-                  className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                  className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
                 />
               </div>
 
@@ -195,9 +207,10 @@ export default function Profil() {
                 </label>
                 <input 
                   type="text"
+                  placeholder="Last name"
                   value={form.lastName}
                   onChange={(e) => handleChange('lastName', e.target.value)}
-                  className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                  className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
                 />
               </div>
             </div>
@@ -210,9 +223,10 @@ export default function Profil() {
               <div className="relative">
                 <input 
                   type="email"
+                  placeholder="Email address"
                   value={form.email}
                   onChange={(e) => handleChange('email', e.target.value)}
-                  className="w-full h-12 bg-white border border-gray-300 rounded-lg pl-4 pr-11 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                  className="w-full h-12 bg-white border border-gray-300 rounded-lg pl-4 pr-11 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
                 />
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-[#22C55E] flex items-center justify-center text-white">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -227,9 +241,10 @@ export default function Profil() {
               </label>
               <input 
                 type="text"
+                placeholder="Street address"
                 value={form.address}
                 onChange={(e) => handleChange('address', e.target.value)}
-                className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
               />
             </div>
 
@@ -240,9 +255,10 @@ export default function Profil() {
               </label>
               <input 
                 type="text"
+                placeholder="Phone number"
                 value={form.contactNumber}
                 onChange={(e) => handleChange('contactNumber', e.target.value)}
-                className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
               />
             </div>
 
@@ -258,7 +274,7 @@ export default function Profil() {
                     onChange={(e) => handleChange('city', e.target.value)}
                     className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 pr-10 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] appearance-none transition-colors"
                   >
-                    <option value="Mehrab">Mehrab</option>
+                    <option value="">Select city</option>
                     <option value="Berlin">Berlin</option>
                     <option value="Hamburg">Hamburg</option>
                     <option value="München">München</option>
@@ -279,12 +295,13 @@ export default function Profil() {
                     onChange={(e) => handleChange('state', e.target.value)}
                     className="w-full h-12 bg-white border border-gray-300 rounded-lg px-4 pr-10 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] appearance-none transition-colors"
                   >
-                    <option value="Bozorgi">Bozorgi</option>
+                    <option value="">Select state</option>
                     <option value="Hamburg">Hamburg</option>
                     <option value="Berlin">Berlin</option>
                     <option value="Bayern">Bayern</option>
                     <option value="Hessen">Hessen</option>
                     <option value="Nordrhein-Westfalen">Nordrhein-Westfalen</option>
+                    <option value="Baden-Württemberg">Baden-Württemberg</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-700" />
                 </div>
@@ -298,10 +315,11 @@ export default function Profil() {
               </label>
               <div className="relative">
                 <input 
-                  type="text"
+                  type="password"
+                  placeholder="Password"
                   value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
-                  className="w-full h-12 bg-white border border-gray-300 rounded-lg pl-4 pr-11 text-sm text-gray-800 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
+                  className="w-full h-12 bg-white border border-gray-300 rounded-lg pl-4 pr-11 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors"
                 />
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md bg-[#22C55E] flex items-center justify-center text-white">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />

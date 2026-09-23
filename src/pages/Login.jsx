@@ -16,8 +16,8 @@ export default function Login() {
   const [searchParams] = useSearchParams()
 
   const [formData, setFormData] = useState({
-    username: 'mehrabbozorgi',
-    email: 'mehrabbozorgi.business@gmail.com',
+    username: '',
+    email: '',
     password: '',
     confirmPassword: '',
   })

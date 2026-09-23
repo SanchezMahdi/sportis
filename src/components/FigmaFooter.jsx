@@ -61,8 +61,8 @@ export default function FigmaFooter() {
                 </Link>
               </li>
               <li>
-                <Link to="/events" className="hover:text-gray-900 transition-colors">
-                  Case Studies
+                <Link to="/sessions" className="hover:text-gray-900 transition-colors">
+                  Sessions
                 </Link>
               </li>
               <li>

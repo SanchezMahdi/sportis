@@ -162,13 +162,6 @@ export default function FigmaNavbar() {
             >
               Sessions
             </Link>
-            <Link
-              to="/events"
-              onClick={() => setMobileOpen(false)}
-              className="text-base font-medium text-gray-700 hover:text-gray-900"
-            >
-              Events
-            </Link>
             <a
               href="#how-it-works"
               onClick={(e) => { e.preventDefault(); scrollToSection('how-it-works') }}
