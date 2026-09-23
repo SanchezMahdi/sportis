@@ -81,40 +81,46 @@ export default function SessionErstellen() {
     setSubmitting(true)
 
     try {
-      if (user) {
-        const { data, error } = await supabase
-          .from('sessions')
-          .insert({
-            creator_id: user.id,
-            host_id: user.id,
-            title: title.trim(),
-            sport: sport.toLowerCase(),
-            date: date,
-            time: time || '18:00',
-            location: ort,
-            address: address || `${university || 'Campus'}, ${ort}`,
-            max_players: 10,
-            skill_level: level === 'Anfänger' ? 'beginner' : 'intermediate',
-            gender_filter: 'Gemischt',
-            equipment: equipmentRequired,
-            description: `Universität: ${university || 'Sportis Community'}`,
-          })
-          .select()
-          .single()
+      if (!user) {
+        toast.error('Bitte melde dich an, um eine Session zu erstellen.')
+        navigate('/login')
+        return
+      }
 
-        if (!error && data) {
-          await supabase.from('session_participants').upsert(
-            { session_id: data.id, user_id: user.id, waitlist: false },
-            { onConflict: 'session_id,user_id' }
-          )
-        }
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert({
+          creator_id: user.id,
+          host_id: user.id,
+          title: title.trim(),
+          sport: sport.toLowerCase(),
+          date: date,
+          time: time || '18:00',
+          location: ort,
+          address: address || `${university || 'Campus'}, ${ort}`,
+          max_players: 10,
+          skill_level: level === 'Anfänger' ? 'beginner' : 'intermediate',
+          gender_filter: 'Gemischt',
+          equipment: equipmentRequired,
+          description: `Universität: ${university || 'Sportis Community'}`,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        await supabase.from('session_participants').upsert(
+          { session_id: data.id, user_id: user.id, waitlist: false, attended: true },
+          { onConflict: 'session_id,user_id' }
+        )
       }
 
       toast.success('Session erfolgreich erstellt! 🎉')
       navigate('/sessions')
     } catch (err) {
       console.error(err)
-      toast.error('Session konnte nicht gespeichert werden.')
+      toast.error('Session konnte nicht gespeichert werden: ' + (err?.message || ''))
     } finally {
       setSubmitting(false)
     }
