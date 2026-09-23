@@ -13,9 +13,10 @@ export default function SessionErstellen() {
   const [level, setLevel] = useState('Anfänger') // 'Anfänger' | 'Mittel'
   const [equipmentRequired, setEquipmentRequired] = useState(false) // false = 'Nein' checked, true = 'Ja' checked
   const [title, setTitle] = useState('')
+  const [titleError, setTitleError] = useState(false)
   const [university, setUniversity] = useState('')
   const [date, setDate] = useState('')
-  const [dateError, setDateError] = useState(false)
+  const [dateError, setDateError] = useState(null)
   const [time, setTime] = useState('')
   const [ort, setOrt] = useState('Hamburg')
   const [address, setAddress] = useState('')
@@ -24,28 +25,59 @@ export default function SessionErstellen() {
 
   const [submitting, setSubmitting] = useState(false)
 
+  const validateDate = (val) => {
+    if (!val) return 'Bitte Datum auswählen'
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const parts = val.split('-').map(Number)
+    if (parts.length !== 3) return 'Ungültiges Datum'
+    const selected = new Date(parts[0], parts[1] - 1, parts[2])
+    if (isNaN(selected.getTime())) return 'Ungültiges Datum'
+    if (selected < today) return 'Datum darf nicht in der Vergangenheit liegen'
+    return null
+  }
+
+  const handleDateChange = (val) => {
+    setDate(val)
+    if (!val) {
+      setDateError(null)
+      return
+    }
+    const err = validateDate(val)
+    setDateError(err)
+  }
+
   // Pre-fill date to today or valid date
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0]
     setDate(today)
     setTime('18:00')
+    setDateError(null)
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    let hasError = false
     if (!title.trim()) {
+      setTitleError(true)
       toast.error('Bitte gib einen Titel ein.')
-      return
+      hasError = true
+    } else {
+      setTitleError(false)
     }
 
-    if (!date) {
-      setDateError(true)
-      toast.error('Bitte wähle ein gültiges Datum.')
-      return
+    const dateErr = validateDate(date)
+    if (dateErr) {
+      setDateError(dateErr)
+      toast.error(dateErr)
+      hasError = true
+    } else {
+      setDateError(null)
     }
 
-    setDateError(false)
+    if (hasError) return
+
     setSubmitting(true)
 
     try {
@@ -189,12 +221,25 @@ export default function SessionErstellen() {
                 type="text"
                 placeholder="Type here"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full h-12 bg-white border border-gray-300 rounded-xl px-4 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED] transition-colors"
+                onChange={(e) => {
+                  setTitle(e.target.value)
+                  if (titleError) setTitleError(false)
+                }}
+                className={`w-full h-12 bg-white border rounded-xl px-4 text-sm text-gray-800 placeholder-gray-400 focus:outline-none transition-colors ${
+                  titleError
+                    ? 'border-red-500 ring-1 ring-red-500'
+                    : 'border-gray-300 focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED]'
+                }`}
               />
-              <span className="text-[11px] text-gray-400">
-                Assistive Text
-              </span>
+              {titleError ? (
+                <span className="text-[11px] text-red-500 font-medium">
+                  Bitte gib einen Titel ein
+                </span>
+              ) : (
+                <span className="text-[11px] text-gray-400">
+                  Assistive Text
+                </span>
+              )}
             </div>
 
             {/* Universität */}
@@ -223,21 +268,28 @@ export default function SessionErstellen() {
                 <input
                   type="date"
                   value={date}
-                  onChange={(e) => {
-                    setDate(e.target.value)
-                    setDateError(false)
-                  }}
-                  className={`w-full h-12 bg-white border rounded-xl px-4 pr-10 text-sm text-gray-800 focus:outline-none transition-colors ${
-                    dateError ? 'border-red-500 ring-1 ring-red-500' : 'border-red-400'
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className={`w-full h-12 bg-white border rounded-xl px-4 ${dateError ? 'pr-10' : 'pr-4'} text-sm text-gray-800 focus:outline-none transition-colors ${
+                    dateError 
+                      ? 'border-red-500 ring-1 ring-red-500' 
+                      : 'border-gray-300 focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED]'
                   }`}
                 />
-                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-500">
-                  <AlertCircle className="w-5 h-5 fill-red-500 text-white" />
-                </div>
+                {dateError && (
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-500 pointer-events-none">
+                    <AlertCircle className="w-5 h-5 fill-red-500 text-white" />
+                  </div>
+                )}
               </div>
-              <span className="text-[11px] text-red-500 font-medium">
-                Error
-              </span>
+              {dateError ? (
+                <span className="text-[11px] text-red-500 font-medium">
+                  {typeof dateError === 'string' ? dateError : 'Error'}
+                </span>
+              ) : (
+                <span className="text-[11px] text-gray-400">
+                  Assistive Text
+                </span>
+              )}
             </div>
 
             {/* Uhrzeit */}
