@@ -1,8 +1,15 @@
 import { useNavigate } from 'react-router-dom'
-import { Calendar, MapPin, Users, Zap } from 'lucide-react'
+import { Calendar, MapPin, Users, Zap, Clock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { SPORT_EMOJIS, SKILL_COLORS } from '../lib/constants'
+import { SPORT_EMOJIS, SKILL_COLORS, toSportLabel, toSkillLabel } from '../lib/constants'
+import {
+  SoccerFieldPlaceholder,
+  BasketballCourtPlaceholder,
+  TennisCourtPlaceholder,
+  VolleyballCourtPlaceholder,
+  PingPongPlaceholder,
+} from './SportPlaceholder'
 
 function getInitials(name) {
   if (!name) return '?'
@@ -14,6 +21,24 @@ function getInitials(name) {
     .slice(0, 2)
 }
 
+// Sport Placeholder Components
+const SPORT_PLACEHOLDERS = {
+  Fußball: SoccerFieldPlaceholder,
+  Basketball: BasketballCourtPlaceholder,
+  Tennis: TennisCourtPlaceholder,
+  Volleyball: VolleyballCourtPlaceholder,
+  Tischtennis: PingPongPlaceholder,
+}
+
+// Hochwertige Sport-Bilder - LOKALE PFADE
+const SPORT_IMAGES = {
+  Fußball: '/sports/hallen_futsal.png',
+  Basketball: '/sports/baskettball.png',
+  Tennis: '/sports/tennis.png',
+  Volleyball: '/sports/vollyball.png',
+  Tischtennis: '/sports/tischtenis.png',
+}
+
 export default function SessionCard({ session, currentUserId }) {
   const navigate = useNavigate()
 
@@ -23,14 +48,25 @@ export default function SessionCard({ session, currentUserId }) {
     (p) => p.user_id === currentUserId
   )
 
-  const emoji = SPORT_EMOJIS[session.sport] || '🏃'
-  const skillColorClass = SKILL_COLORS[session.skill_level] || 'bg-gray-500'
+  const sportLabel = toSportLabel(session.sport)
+  const skillLabel = toSkillLabel(session.skill_level)
+  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
+  const skillColorClass = SKILL_COLORS[skillLabel] || 'bg-gray-500'
+  const PlaceholderComponent = SPORT_PLACEHOLDERS[sportLabel]
+  const sportImage = SPORT_IMAGES[sportLabel]
 
   let formattedDate = ''
   try {
-    formattedDate = format(parseISO(session.date), 'EEE, d. MMM yyyy', { locale: de })
+    formattedDate = format(parseISO(session.date), 'd. MMM', { locale: de })
   } catch {
     formattedDate = session.date
+  }
+
+  let formattedFullDate = ''
+  try {
+    formattedFullDate = format(parseISO(session.date), 'EEEE, d. MMMM yyyy', { locale: de })
+  } catch {
+    formattedFullDate = session.date
   }
 
   const formattedTime = session.time
@@ -53,89 +89,103 @@ export default function SessionCard({ session, currentUserId }) {
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className="bg-card rounded-xl p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/10 hover:border-primary/30 border border-white/5 flex flex-col gap-4 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      {/* Header: Sport badge + title */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-col gap-1 flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 bg-primary/20 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">
-              <span>{emoji}</span>
-              <span>{session.sport}</span>
+      <div className="bg-card rounded-2xl overflow-hidden border border-white/10 hover:border-primary/50 shadow-lg hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 h-full flex flex-col">
+        
+        {/* Platz-Bild Bereich */}
+        <div 
+          className="relative h-40 overflow-hidden bg-dark bg-cover bg-center group-hover:scale-105 transition-transform duration-300"
+          style={sportImage ? { backgroundImage: `url('${sportImage}')` } : {}}
+        >
+          {!sportImage && PlaceholderComponent && (
+            <div className="absolute inset-0">
+              <PlaceholderComponent />
+            </div>
+          )}
+          
+          {/* Overlay für besseren Text-Kontrast */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          
+          {/* Top-Right: Skill Level Badge */}
+          <div className="absolute top-4 right-4 z-10">
+            <span
+              className={`${skillColorClass} text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg`}
+            >
+              {skillLabel}
             </span>
-            {session.equipment && (
-              <span className="inline-flex items-center gap-1 bg-blue-500/20 text-blue-400 text-xs font-semibold px-2 py-0.5 rounded-full">
-                Ausrüstung ✓
-              </span>
-            )}
           </div>
-          <h3 className="text-white font-semibold text-base leading-tight mt-1 group-hover:text-primary transition-colors truncate">
+
+          {/* Sport Name unten links */}
+          <div className="absolute bottom-4 left-4 right-4 z-10">
+            <div className="inline-flex items-center gap-2 bg-white/95 backdrop-blur-sm text-dark px-3 py-2 rounded-lg shadow-lg font-semibold">
+              <span className="text-lg">{emoji}</span>
+              <span>{sportLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 flex-1 flex flex-col gap-3">
+          
+          {/* Titel */}
+          <h3 className="text-white font-bold text-lg leading-snug group-hover:text-primary transition-colors line-clamp-2">
             {session.title}
           </h3>
-        </div>
 
-        {/* Skill level badge */}
-        <span
-          className={`${skillColorClass} text-white text-xs font-bold px-2 py-1 rounded-lg shrink-0`}
-        >
-          {session.skill_level}
-        </span>
-      </div>
+          {/* Zeit und Ort */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 text-sm text-muted group-hover:text-white/70 transition-colors">
+              <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="font-medium">{formattedDate}</span>
+              {formattedTime && (
+                <>
+                  <span className="text-white/30">•</span>
+                  <Clock className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="font-medium">{formattedTime}</span>
+                </>
+              )}
+            </div>
 
-      {/* Meta info */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-muted text-sm">
-          <Calendar className="w-4 h-4 text-primary shrink-0" />
-          <span>
-            {formattedDate}
-            {formattedTime && (
-              <span className="ml-1 font-medium text-white">{formattedTime} Uhr</span>
-            )}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-muted text-sm">
-          <MapPin className="w-4 h-4 text-primary shrink-0" />
-          <span className="truncate">{session.location}</span>
-        </div>
-
-        <div className="flex items-center gap-2 text-muted text-sm">
-          <Users className="w-4 h-4 text-primary shrink-0" />
-          <span>
-            <span className={isFull ? 'text-red-400' : 'text-white'}>
-              {participantCount}
-            </span>
-            <span> / {session.max_players} Spieler:innen</span>
-          </span>
-
-          {/* Progress bar */}
-          <div className="flex-1 bg-white/10 rounded-full h-1.5 ml-1">
-            <div
-              className={`h-1.5 rounded-full transition-all ${isFull ? 'bg-red-500' : 'bg-primary'}`}
-              style={{ width: `${Math.min((participantCount / session.max_players) * 100, 100)}%` }}
-            />
+            <div className="flex items-center gap-3 text-sm text-muted group-hover:text-white/70 transition-colors">
+              <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="truncate font-medium">{session.location}</span>
+            </div>
           </div>
+
+          {/* Spieler Anzahl */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-primary/10 px-3 py-2 rounded-lg flex-1">
+              <Users className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="text-sm font-semibold text-white">
+                <span className="text-primary">{participantCount}</span>
+                <span className="text-white/60">/{session.max_players}</span>
+              </span>
+              {isFull && (
+                <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded ml-auto font-semibold">
+                  Voll
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Equipment Badge */}
+          {session.equipment && (
+            <div className="inline-flex items-center gap-2 bg-blue-500/15 text-blue-300 text-xs font-semibold px-3 py-2 rounded-lg border border-blue-500/30 w-fit">
+              <Zap className="w-3.5 h-3.5" />
+              Ausrüstung vorhanden
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Footer: gender filter + action button */}
-      <div className="flex items-center justify-between pt-1 border-t border-white/5">
-        <span className="text-muted text-xs">{session.gender_filter}</span>
-
-        {isParticipant ? (
-          <span className="inline-flex items-center gap-1 bg-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-lg">
-            <Zap className="w-3 h-3" />
-            Dabei!
-          </span>
-        ) : isFull ? (
-          <span className="bg-white/10 text-muted text-xs font-semibold px-3 py-1.5 rounded-lg cursor-not-allowed">
-            Voll
-          </span>
-        ) : (
-          <span className="bg-primary text-dark text-xs font-bold px-3 py-1.5 rounded-lg group-hover:bg-green-400 transition-colors">
-            Beitreten
-          </span>
-        )}
+        {/* Button Area */}
+        <div className="px-5 pb-4 pt-2 border-t border-white/5">
+          <button
+            className="w-full bg-gradient-to-r from-primary to-green-400 text-dark font-bold py-2.5 rounded-lg hover:from-primary hover:to-primary shadow-lg hover:shadow-xl hover:shadow-primary/30 transition-all duration-200 active:scale-95"
+          >
+            Zum Event →
+          </button>
+        </div>
       </div>
     </div>
   )

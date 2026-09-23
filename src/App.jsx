@@ -1,16 +1,18 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
 import CookieBanner from './components/CookieBanner'
+import FeedbackWidget from './components/FeedbackWidget'
 
 const Landing        = lazy(() => import('./pages/Landing'))
+const Sessions       = lazy(() => import('./pages/Sessions'))
+const Events         = lazy(() => import('./pages/Events'))
 const Entdecken      = lazy(() => import('./pages/Entdecken'))
 const SessionDetail  = lazy(() => import('./pages/SessionDetail'))
 const SessionErstellen = lazy(() => import('./pages/SessionErstellen'))
-const Plaetze        = lazy(() => import('./pages/Plaetze'))
 const Profil         = lazy(() => import('./pages/Profil'))
 const Dashboard      = lazy(() => import('./pages/Dashboard'))
 const Login          = lazy(() => import('./pages/Login'))
@@ -56,12 +58,15 @@ export default function App() {
         />
 
         <CookieBanner />
+        <FeedbackWidget />
         <Routes>
           <Route path="/"                element={<Wrap><Landing /></Wrap>} />
+          <Route path="/sessions"        element={<Wrap><Sessions /></Wrap>} />
+          <Route path="/events"          element={<Wrap><Events /></Wrap>} />
           <Route path="/entdecken"       element={<Wrap><Entdecken /></Wrap>} />
           <Route path="/session/erstellen" element={<Wrap><SessionErstellen /></Wrap>} />
           <Route path="/session/:id"     element={<Wrap><SessionDetail /></Wrap>} />
-          <Route path="/plaetze"         element={<Wrap><Plaetze /></Wrap>} />
+          <Route path="/plaetze"         element={<Navigate to="/#pictures" replace />} />
           <Route path="/profil"          element={<Wrap><Profil /></Wrap>} />
           <Route path="/dashboard"       element={<Wrap><Dashboard /></Wrap>} />
           <Route path="/login"           element={<Wrap><Login /></Wrap>} />

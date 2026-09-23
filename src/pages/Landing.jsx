@@ -1,298 +1,493 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Users, Zap, MapPin, ChevronRight } from 'lucide-react'
-import { SPORTARTEN, SPORT_EMOJIS } from '../lib/constants'
+import { ArrowRight, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
-const floatingEmojis = [
-  { emoji: '⚽', style: 'top-16 left-[8%] text-5xl animate-float' },
-  { emoji: '🎾', style: 'top-32 right-[10%] text-4xl animate-float-delay-1' },
-  { emoji: '🏀', style: 'bottom-20 left-[12%] text-5xl animate-float-delay-2' },
-  { emoji: '🏐', style: 'top-1/2 right-[6%] text-4xl animate-float-delay-3' },
-  { emoji: '🏓', style: 'top-24 left-[30%] text-3xl animate-float-delay-2' },
+// Die 6 exakten Roadmap-Schritte aus dem Figma-Board
+const roadmapSteps = [
+  {
+    num: '#1',
+    title: 'Meet new people',
+    desc: 'Join Sportis, meet new people, and enjoy your first activities together. Whether you come alone or with friends, everyone is welcome.',
+    row: 'top',
+  },
+  {
+    num: '#2',
+    title: 'Join different sessions',
+    desc: 'Take part in different sessions, try new sports and formats, and discover what you enjoy most.',
+    row: 'bottom',
+  },
+  {
+    num: '#3',
+    title: 'Build your team',
+    desc: 'Meet people you connect with and form your own team. Find your teammates and start playing together regularly.',
+    row: 'top',
+  },
+  {
+    num: '#4',
+    title: 'Play & connect',
+    desc: 'Keep joining sessions, play together, improve as a team, and become part of the Sportis community.',
+    row: 'bottom',
+  },
+  {
+    num: '#5',
+    title: 'Tournaments & events',
+    desc: 'Put your team to the test in exciting tournaments and join special Sportis events with the community.',
+    row: 'top',
+  },
+  {
+    num: '#6',
+    title: 'The Final Cup & Summer BBQ',
+    desc: 'The season highlight: the big Sportis Final Cup followed by a summer BBQ, good food, music, and celebrating together with the whole community.',
+    row: 'bottom',
+  },
 ]
 
-const features = [
+// Die 5 echten Sportis-Fotos aus dem Roadmap-Streifen
+const roadmapPhotos = [
   {
-    icon: '🏃',
-    title: 'Fokussierte Sportauswahl',
-    desc: 'Fußball, Volleyball, Basketball, Tennis und Tischtennis – schnell finden, schnell loslegen.',
+    id: 1,
+    src: '/figma/v2/assets/photo_1_crowd.png',
+    alt: 'Sportis Community Outdoor Meetup',
   },
   {
-    icon: '👥',
-    title: 'Community',
-    desc: 'Triff Gleichgesinnte in deiner Stadt und erweitere deinen Sportler:innen-Kreis.',
+    id: 2,
+    src: '/figma/v2/assets/photo_2_sportis_jerseys.png',
+    alt: 'Sportis Team Trikots #6, #22, #9',
   },
   {
-    icon: '⚡',
-    title: 'Echtzeit-Chat',
-    desc: 'Koordiniert euch direkt in der Session – kein WhatsApp-Chaos mehr.',
+    id: 3,
+    src: '/figma/v2/assets/photo_3_spikeball.png',
+    alt: 'Spikeball Match auf dem Campus',
+  },
+  {
+    id: 4,
+    src: '/figma/v2/assets/photo_4_pitch.png',
+    alt: 'Moderner Kunstrasenplatz & Flutlicht',
+  },
+  {
+    id: 5,
+    src: '/figma/v2/assets/photo_5_tabletennis.png',
+    alt: 'Outdoor Tischtennis am Campus',
   },
 ]
 
-const steps = [
-  {
-    number: '01',
-    title: 'Profil erstellen',
-    desc: 'In 30 Sekunden registrieren und deine Lieblingssportarten angeben.',
-  },
-  {
-    number: '02',
-    title: 'Session finden oder erstellen',
-    desc: 'Filtere nach Sportart, Stadt, Level und Datum – oder erstelle deine eigene Session.',
-  },
-  {
-    number: '03',
-    title: 'Mitspielen!',
-    desc: 'Tritt bei, chatte mit den anderen und leg los!',
-  },
+// Die 10 echten Sportis-Fotos aus dem Bilder-Ordner für die interaktive Bogengalerie
+const galleryPhotos = [
+  { id: 1, src: '/gallery/photo_1_lawn.jpg', alt: 'Sportis Community auf dem Rasen' },
+  { id: 2, src: '/gallery/photo_2_match_trees.jpg', alt: 'Fußballmatch vor Backsteingebäude' },
+  { id: 3, src: '/gallery/photo_4_goal.jpg', alt: 'Sportis Spieler am Tor' },
+  { id: 4, src: '/gallery/photo_7_jerseys.png', alt: 'Sportis Trikots #6, #22, #9' },
+  { id: 5, src: '/gallery/photo_8_tabletennis.jpg', alt: 'Tischtennis Match am Libeskind-Bau' },
+  { id: 6, src: '/gallery/photo_9_spikeball.jpg', alt: 'Spikeball auf dem Rasen' },
+  { id: 7, src: '/gallery/photo_10_cali.jpg', alt: 'Cali Park Altona Meetup' },
+  { id: 8, src: '/gallery/photo_6_pitch_banner.jpg', alt: 'Kunstrasenplatz mit Willkommen-Banner' },
+  { id: 9, src: '/gallery/photo_5_team_grass.jpg', alt: 'Sportis Team auf dem Platz' },
+  { id: 10, src: '/gallery/photo_3_graffiti.jpg', alt: 'Match vor Graffiti-Container' },
 ]
 
 export default function Landing() {
+  const [videoModalOpen, setVideoModalOpen] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
+
+  const getPhoto = (offset) => {
+    const idx = (galleryIndex + offset + galleryPhotos.length * 10) % galleryPhotos.length
+    return galleryPhotos[idx]
+  }
+
+  const prevPhoto = () => {
+    setGalleryIndex((prev) => (prev - 1 + galleryPhotos.length) % galleryPhotos.length)
+  }
+
+  const nextPhoto = () => {
+    setGalleryIndex((prev) => (prev + 1) % galleryPhotos.length)
+  }
+
   return (
-    <div className="overflow-x-hidden">
-      {/* ── Hero Section ── */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Background gradient glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] bg-primary/5 rounded-full blur-2xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-2xl" />
-        </div>
+    <div className="bg-white text-gray-900 overflow-x-hidden font-['Inter',sans-serif]">
 
-        {/* Floating sport emojis */}
-        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-          {floatingEmojis.map((item, i) => (
-            <span
-              key={i}
-              className={`absolute opacity-20 ${item.style}`}
-            >
-              {item.emoji}
-            </span>
-          ))}
-        </div>
-
-        {/* Hero content */}
-        <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-sm font-medium px-4 py-2 rounded-full mb-8">
-            <Zap className="w-4 h-4" />
-            Die neue Sport-Community in Deutschland
-          </div>
-
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-black text-white leading-tight tracking-tight mb-6">
-            Finde dein{' '}
-            <span className="text-primary relative">
-              nächstes Spiel
-              <span className="absolute -bottom-1 left-0 right-0 h-1 bg-primary/40 rounded-full" />
-            </span>
-            .
-          </h1>
-
-          <p className="text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
-            Sportis verbindet Sportler:innen aller Sportarten – erstelle oder finde
-            Sessions in deiner Stadt. Kostenlos, einfach, sportlich.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/entdecken"
-              className="inline-flex items-center justify-center gap-2 bg-primary text-dark font-bold text-lg px-8 py-4 rounded-xl hover:bg-green-400 transition-all hover:scale-105 shadow-lg shadow-primary/25"
-            >
-              Sessions entdecken
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-            <Link
-              to="/session/erstellen"
-              className="inline-flex items-center justify-center gap-2 border-2 border-white/20 text-white font-bold text-lg px-8 py-4 rounded-xl hover:border-primary hover:text-primary transition-all hover:scale-105"
-            >
-              Session erstellen
-            </Link>
-          </div>
-
-          {/* Social proof */}
-          <div className="mt-14 flex flex-col sm:flex-row items-center justify-center gap-8 text-muted text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-primary font-bold text-2xl">5</span>
-              <span>Sportarten</span>
-            </div>
-            <div className="w-px h-8 bg-white/10 hidden sm:block" />
-            <div className="flex items-center gap-2">
-              <span className="text-primary font-bold text-2xl">100%</span>
-              <span>Kostenlos</span>
-            </div>
-            <div className="w-px h-8 bg-white/10 hidden sm:block" />
-            <div className="flex items-center gap-2">
-              <span className="text-primary font-bold text-2xl">Alle</span>
-              <span>Geschlechter willkommen</span>
-            </div>
-          </div>
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* 1. HERO SECTION (Exakt nach Figma Thumbnail.png)                       */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      <section className="relative pt-0 pb-4 md:pb-6 max-w-[1440px] mx-auto overflow-hidden">
+        <h1 className="sr-only">Sportis – From Student for Student</h1>
+        <div className="w-full flex justify-center items-center">
+          <img 
+            src="/figma/hero_banner_exact.png" 
+            alt="From Student for Student - Sportis" 
+            className="w-full h-auto object-contain select-none" 
+          />
         </div>
       </section>
 
-      {/* ── Features Section ── */}
-      <section className="py-24 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              Warum <span className="text-primary">Sportis</span>?
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* 2. CAMPUS LEAGUE / ROADMAP (5 echte Sportis-Fotos)                     */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      <section id="campus-league" className="pt-10 sm:pt-14 pb-24 bg-[#F6F9FE]">
+        <div id="how-it-works" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Übertitel für Seite 2: Campus League */}
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="text-sm sm:text-base font-medium text-[#4A5568] tracking-wide">
+              Campus League
             </h2>
-            <p className="text-muted text-lg max-w-xl mx-auto">
-              Alles was du brauchst, um Sport mit anderen zu genießen.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {features.map((f, i) => (
-              <div
-                key={i}
-                className="bg-card rounded-2xl p-8 border border-white/5 hover:border-primary/30 transition-all group"
-              >
-                <div className="text-5xl mb-6">{f.icon}</div>
-                <h3 className="text-white font-bold text-xl mb-3 group-hover:text-primary transition-colors">
-                  {f.title}
-                </h3>
-                <p className="text-muted leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ── */}
-      <section className="py-24 px-4 bg-card/30">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              So funktioniert's
-            </h2>
-            <p className="text-muted text-lg max-w-xl mx-auto">
-              In drei einfachen Schritten zum nächsten Spiel.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Connector line */}
-            <div className="hidden md:block absolute top-12 left-1/4 right-1/4 h-px bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0" />
-
-            {steps.map((step, i) => (
-              <div key={i} className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-2xl bg-primary/10 border-2 border-primary/30 flex items-center justify-center mb-6 relative">
-                  <span className="text-primary font-black text-3xl">{step.number}</span>
-                  {i < steps.length - 1 && (
-                    <ChevronRight className="hidden md:block absolute -right-12 top-1/2 -translate-y-1/2 text-primary/40 w-6 h-6" />
-                  )}
+          {/* Desktop Process Timeline */}
+          <div className="relative mb-16">
+            
+            {/* Desktop Timeline */}
+            <div className="hidden lg:block relative">
+              
+              {/* TOP ROW (#1, #3, #5) */}
+              <div className="grid grid-cols-3 gap-8 pb-8">
+                {/* #1 Meet new people */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200/90 shadow-xs hover:shadow-md transition-shadow">
+                  <span className="text-[#BE185D] font-bold text-base mr-2">#1</span>
+                  <span className="font-bold text-gray-900 text-base">Meet new people</span>
+                  <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+                    Join Sportis, meet new people, and enjoy your first activities together. Whether you come alone or with friends, everyone is welcome.
+                  </p>
                 </div>
-                <h3 className="text-white font-bold text-lg mb-3">{step.title}</h3>
-                <p className="text-muted text-sm leading-relaxed max-w-xs">{step.desc}</p>
+
+                {/* #3 Build your team */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200/90 shadow-xs hover:shadow-md transition-shadow">
+                  <span className="text-[#BE185D] font-bold text-base mr-2">#3</span>
+                  <span className="font-bold text-gray-900 text-base">Build your team</span>
+                  <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+                    Meet people you connect with and form your own team. Find your teammates and start playing together regularly.
+                  </p>
+                </div>
+
+                {/* #5 Tournaments & events */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200/90 shadow-xs hover:shadow-md transition-shadow">
+                  <span className="text-[#BE185D] font-bold text-base mr-2">#5</span>
+                  <span className="font-bold text-gray-900 text-base">Tournaments & events</span>
+                  <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+                    Put your team to the test in exciting tournaments and join special Sportis events with the community.
+                  </p>
+                </div>
               </div>
-            ))}
+
+              {/* CONNECTING RED / PINK HORIZONTAL LINE WITH TROPHY */}
+              <div className="relative my-4">
+                <div className="h-[2px] w-full bg-[#FB7185]" />
+                
+                {/* Vertical markers on line */}
+                <div className="absolute top-1/2 -translate-y-1/2 left-[16.6%] w-1.5 h-4 bg-[#FB7185]" />
+                <div className="absolute top-1/2 -translate-y-1/2 left-[33.3%] w-1.5 h-4 bg-[#FB7185]" />
+                <div className="absolute top-1/2 -translate-y-1/2 left-[50%] w-1.5 h-4 bg-[#FB7185]" />
+                <div className="absolute top-1/2 -translate-y-1/2 left-[66.6%] w-1.5 h-4 bg-[#FB7185]" />
+                <div className="absolute top-1/2 -translate-y-1/2 left-[83.3%] w-1.5 h-4 bg-[#FB7185]" />
+
+                {/* Trophy at end of the line */}
+                <div className="absolute right-0 -top-5">
+                  <img 
+                    src="/figma/trophy.png" 
+                    alt="Sportis Trophy" 
+                    className="w-10 h-10 object-contain drop-shadow-sm" 
+                  />
+                </div>
+              </div>
+
+              {/* 5 ECHTE SPORTIS FOTOS ZWISCHEN DEN ZEILEN */}
+              <div className="py-6">
+                <div className="grid grid-cols-5 gap-4 items-center">
+                  {roadmapPhotos.map((photo) => (
+                    <div 
+                      key={photo.id}
+                      className="rounded-2xl overflow-hidden border border-gray-200/80 shadow-xs hover:shadow-md transition-all duration-300 group aspect-[4/3] bg-gray-50"
+                    >
+                      <img 
+                        src={photo.src} 
+                        alt={photo.alt}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* BOTTOM ROW (#2, #4, #6) */}
+              <div className="grid grid-cols-3 gap-8 pt-4">
+                {/* #2 Join different sessions */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200/90 shadow-xs hover:shadow-md transition-shadow">
+                  <span className="text-[#BE185D] font-bold text-base mr-2">#2</span>
+                  <span className="font-bold text-gray-900 text-base">Join different sessions</span>
+                  <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+                    Take part in different sessions, try new sports and formats, and discover what you enjoy most.
+                  </p>
+                </div>
+
+                {/* #4 Play & connect */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200/90 shadow-xs hover:shadow-md transition-shadow">
+                  <span className="text-[#BE185D] font-bold text-base mr-2">#4</span>
+                  <span className="font-bold text-gray-900 text-base">Play & connect</span>
+                  <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+                    Keep joining sessions, play together, improve as a team, and become part of the Sportis community.
+                  </p>
+                </div>
+
+                {/* #6 The Final Cup & Summer BBQ */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200/90 shadow-xs hover:shadow-md transition-shadow">
+                  <span className="text-[#BE185D] font-bold text-base mr-2">#6</span>
+                  <span className="font-bold text-gray-900 text-base">The Final Cup & Summer BBQ</span>
+                  <p className="text-xs text-gray-600 mt-3 leading-relaxed">
+                    The season highlight: the big Sportis Final Cup followed by a summer BBQ, good food, music, and celebrating together with the whole community.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Mobile / Tablet Responsive Stack */}
+            <div className="lg:hidden space-y-4">
+              {roadmapSteps.map((step) => (
+                <div key={step.num} className="bg-white rounded-2xl p-5 border border-gray-200 shadow-xs">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[#BE185D] font-bold text-lg">{step.num}</span>
+                    <span className="font-bold text-gray-900 text-base">{step.title}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">{step.desc}</p>
+                </div>
+              ))}
+
+              {/* Photos Carousel on Mobile */}
+              <div className="pt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                {roadmapPhotos.map((p) => (
+                  <div key={p.id} className="w-44 h-32 shrink-0 rounded-xl overflow-hidden border border-gray-200">
+                    <img src={p.src} alt={p.alt} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
+
         </div>
       </section>
 
-      {/* ── Sports showcase ── */}
-      <section className="py-24 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              Deine Sportart ist dabei
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* 3. ABOUT US • SPORT BRINGS PEOPLE TOGETHER • MORE THAN JUST A GAME      */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      <section id="about-us" className="py-20 bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Centered "About us" label */}
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="text-sm sm:text-base font-medium text-[#4A5568] tracking-wide">
+              About us
             </h2>
-            <p className="text-muted text-lg max-w-xl mx-auto">
-              Fußball, Volleyball, Basketball, Tennis und Tischtennis.
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {SPORTARTEN.map((sport) => (
-              <Link
-                key={sport}
-                to={`/entdecken?sport=${encodeURIComponent(sport)}`}
-                className="bg-card rounded-xl p-5 flex flex-col items-center gap-3 border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all group hover:scale-105"
-              >
-                <span className="text-4xl group-hover:scale-110 transition-transform">
-                  {SPORT_EMOJIS[sport]}
-                </span>
-                <span className="text-white text-sm font-semibold">{sport}</span>
-                <span className="text-primary text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                  Jetzt mitspielen <ArrowRight className="w-3 h-3" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Map teaser ── */}
-      <section className="py-16 px-4 bg-card/30">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center gap-8 bg-card rounded-2xl p-8 border border-white/5">
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full mb-4">
-                <MapPin className="w-4 h-4" />
-                Plätze in deiner Nähe
-              </div>
-              <h3 className="text-white font-black text-2xl mb-3">
-                Finde die besten Spielflächen
-              </h3>
-              <p className="text-muted mb-6 leading-relaxed">
-                Unsere Community trägt Spielfelder, Hallen und Parks ein –
-                filterbar nach Sportart, drinnen/draußen und kostenlos/kostenpflichtig.
-              </p>
-              <Link
-                to="/plaetze"
-                className="inline-flex items-center gap-2 bg-primary text-dark font-bold px-6 py-3 rounded-xl hover:bg-green-400 transition-colors"
-              >
-                Plätze entdecken
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-            <div className="flex-1 bg-dark/50 rounded-xl h-48 flex items-center justify-center border border-white/10 w-full">
-              <div className="text-center">
-                <MapPin className="w-12 h-12 text-primary/40 mx-auto mb-3" />
-                <p className="text-muted text-sm">Karte kommt bald</p>
-                <p className="text-muted/60 text-xs mt-1">OpenStreetMap Integration</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA Banner ── */}
-      <section className="py-24 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="relative bg-gradient-to-br from-primary/20 to-green-900/10 rounded-3xl p-12 border border-primary/20 overflow-hidden">
-            {/* Glow */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
-            </div>
-
-            <div className="relative z-10">
-              <span className="text-5xl mb-6 block">🚀</span>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4">
-                Bereit für dein{' '}
-                <span className="text-primary">nächstes Spiel</span>?
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            {/* Left Column: Heading & Copy */}
+            <div className="lg:col-span-6 flex flex-col items-start">
+              {/* Pink accent line */}
+              <div className="w-12 h-1 bg-[#BE185D] rounded-full mb-6" />
+              
+              <h2 className="text-3xl sm:text-4xl text-gray-900 font-normal leading-tight mb-6">
+                Sport brings people together<br />
+                <span className="font-bold text-gray-950">More than just a game</span>
               </h2>
-              <p className="text-muted text-lg mb-8 max-w-xl mx-auto">
-                Registriere dich jetzt kostenlos und werde Teil der wachsenden
-                Sportis-Community.
+
+              <p className="text-[15px] leading-relaxed text-gray-600 mb-8 max-w-xl">
+                Sportis makes it easy to meet new people, join different sports sessions, and become part of a community. Whether you come alone or with friends, every session is an opportunity to connect, have fun, and discover something new.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  to="/login"
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-dark font-bold text-lg px-8 py-4 rounded-xl hover:bg-green-400 transition-all hover:scale-105 shadow-lg shadow-primary/25"
-                >
-                  Kostenlos registrieren
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-                <Link
-                  to="/entdecken"
-                  className="inline-flex items-center justify-center gap-2 border-2 border-white/20 text-white font-bold text-lg px-8 py-4 rounded-xl hover:border-primary hover:text-primary transition-all"
-                >
-                  Sessions ansehen
-                </Link>
+
+              <Link
+                to="/sessions"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[#5B3FE9] hover:text-[#4534C7] group transition-colors"
+              >
+                <span>See more Informations</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+
+            {/* Right Column: Team Video Card with Play Button */}
+            <div className="lg:col-span-6 flex justify-center">
+              <div 
+                onClick={() => setVideoModalOpen(true)}
+                className="relative rounded-3xl overflow-hidden shadow-xl bg-gray-100 group cursor-pointer max-w-lg w-full aspect-[4/3] border border-gray-100 hover:shadow-2xl transition-all duration-300"
+              >
+                <img 
+                  src="/figma/video_preview_two_students.png" 
+                  alt="Sportis Video Preview" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                />
               </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* 4. PICTURE • MEET THE COMMUNITY • MORE THAN JUST TEAMMATES             */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      <section id="pictures" className="pt-20 pb-20 bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="mb-12">
+            <div className="w-12 h-1 bg-[#BE185D] rounded-full mb-4" />
+            <h2 className="text-3xl sm:text-4xl text-gray-900 font-normal">
+              Meet the Community<br />
+              <span className="font-bold text-gray-950">More than just teammates</span>
+            </h2>
+          </div>
+
+          {/* Arched Photo Gallery Strip from Figma */}
+          <div className="flex flex-col items-center">
+            {/* Centered "Picture" label */}
+            <div className="text-center mb-8">
+              <h2 className="text-sm sm:text-base font-medium text-[#4A5568] tracking-wide">
+                Picture
+              </h2>
+            </div>
+
+            {/* Interactive Arched Photo Gallery */}
+            <div className="w-full max-w-6xl mx-auto flex items-center justify-center gap-2 sm:gap-3.5 select-none py-4 px-2 min-h-[420px]">
+              
+              {/* Slot -3 (Far Left Pill) */}
+              <div 
+                onClick={() => setGalleryIndex((prev) => (prev - 3 + galleryPhotos.length) % galleryPhotos.length)}
+                className="hidden xl:block w-7 lg:w-8 h-40 sm:h-44 rounded-full overflow-hidden shadow-xs cursor-pointer hover:opacity-85 hover:scale-105 transition-all duration-300 shrink-0 bg-gray-100"
+                title={getPhoto(-3).alt}
+              >
+                <img 
+                  src={getPhoto(-3).src} 
+                  alt={getPhoto(-3).alt} 
+                  className="w-full h-full object-cover transition-transform duration-500" 
+                />
+              </div>
+
+              {/* Slot -2 (Mid Left Pill) */}
+              <div 
+                onClick={() => setGalleryIndex((prev) => (prev - 2 + galleryPhotos.length) % galleryPhotos.length)}
+                className="hidden md:block w-14 sm:w-18 lg:w-20 h-64 sm:h-72 rounded-full overflow-hidden shadow-sm cursor-pointer hover:opacity-85 hover:scale-105 transition-all duration-300 shrink-0 bg-gray-100"
+                title={getPhoto(-2).alt}
+              >
+                <img 
+                  src={getPhoto(-2).src} 
+                  alt={getPhoto(-2).alt} 
+                  className="w-full h-full object-cover transition-transform duration-500" 
+                />
+              </div>
+
+              {/* Slot -1 (Inner Left Pill) */}
+              <div 
+                onClick={prevPhoto}
+                className="w-14 sm:w-20 lg:w-24 h-72 sm:h-92 rounded-full overflow-hidden shadow-md cursor-pointer hover:opacity-85 hover:scale-105 transition-all duration-300 shrink-0 bg-gray-100"
+                title={getPhoto(-1).alt}
+              >
+                <img 
+                  src={getPhoto(-1).src} 
+                  alt={getPhoto(-1).alt} 
+                  className="w-full h-full object-cover transition-transform duration-500" 
+                />
+              </div>
+
+              {/* Slot 0 (Main Center Rounded Card) */}
+              <div className="w-[280px] sm:w-[440px] md:w-[500px] lg:w-[560px] h-64 sm:h-[380px] md:h-[410px] rounded-[28px] sm:rounded-[36px] overflow-hidden shadow-xl border border-gray-100 transition-all duration-500 shrink-0 bg-gray-100 relative group">
+                <img 
+                  key={getPhoto(0).id}
+                  src={getPhoto(0).src} 
+                  alt={getPhoto(0).alt} 
+                  className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-500" 
+                />
+              </div>
+
+              {/* Slot +1 (Inner Right Pill) */}
+              <div 
+                onClick={nextPhoto}
+                className="w-14 sm:w-20 lg:w-24 h-72 sm:h-92 rounded-full overflow-hidden shadow-md cursor-pointer hover:opacity-85 hover:scale-105 transition-all duration-300 shrink-0 bg-gray-100"
+                title={getPhoto(1).alt}
+              >
+                <img 
+                  src={getPhoto(1).src} 
+                  alt={getPhoto(1).alt} 
+                  className="w-full h-full object-cover transition-transform duration-500" 
+                />
+              </div>
+
+              {/* Slot +2 (Mid Right Pill) */}
+              <div 
+                onClick={() => setGalleryIndex((prev) => (prev + 2) % galleryPhotos.length)}
+                className="hidden md:block w-14 sm:w-18 lg:w-20 h-64 sm:h-72 rounded-full overflow-hidden shadow-sm cursor-pointer hover:opacity-85 hover:scale-105 transition-all duration-300 shrink-0 bg-gray-100"
+                title={getPhoto(2).alt}
+              >
+                <img 
+                  src={getPhoto(2).src} 
+                  alt={getPhoto(2).alt} 
+                  className="w-full h-full object-cover transition-transform duration-500" 
+                />
+              </div>
+
+              {/* Slot +3 (Far Right Pill) */}
+              <div 
+                onClick={() => setGalleryIndex((prev) => (prev + 3) % galleryPhotos.length)}
+                className="hidden xl:block w-7 lg:w-8 h-40 sm:h-44 rounded-full overflow-hidden shadow-xs cursor-pointer hover:opacity-85 hover:scale-105 transition-all duration-300 shrink-0 bg-gray-100"
+                title={getPhoto(3).alt}
+              >
+                <img 
+                  src={getPhoto(3).src} 
+                  alt={getPhoto(3).alt} 
+                  className="w-full h-full object-cover transition-transform duration-500" 
+                />
+              </div>
+
+            </div>
+
+            {/* Navigation Carousel Buttons (< >) */}
+            <div className="flex items-center gap-4 mt-8">
+              <button 
+                type="button"
+                onClick={prevPhoto}
+                className="w-11 h-11 rounded-full bg-[#6B7280] hover:bg-[#4B5563] active:bg-[#374151] text-white flex items-center justify-center transition-all shadow-sm hover:shadow active:scale-95 cursor-pointer"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button 
+                type="button"
+                onClick={nextPhoto}
+                className="w-11 h-11 rounded-full bg-[#6B7280] hover:bg-[#4B5563] active:bg-[#374151] text-white flex items-center justify-center transition-all shadow-sm hover:shadow active:scale-95 cursor-pointer"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {/* VIDEO PREVIEW MODAL                                                    */}
+      {/* ────────────────────────────────────────────────────────────────────── */}
+      {videoModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative bg-dark rounded-3xl overflow-hidden max-w-3xl w-full border border-white/10 shadow-2xl">
+            <button
+              onClick={() => setVideoModalOpen(false)}
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="aspect-video w-full">
+              <video 
+                src="/video/sportisvideo.mp4" 
+                controls 
+                autoPlay 
+                className="w-full h-full object-cover" 
+              />
             </div>
           </div>
         </div>
-      </section>
+      )}
+
     </div>
   )
 }

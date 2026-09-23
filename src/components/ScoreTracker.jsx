@@ -90,7 +90,8 @@ export default function ScoreTracker({ userId }) {
     high_fives_received: 0,
     sessions_played: 0,
     reliability_score: 50,
-    avg_rating: 0
+    avg_rating: 0,
+    win_loss_ratio: 0,
   })
   const [history, setHistory] = useState([])
   const [ranking, setRanking] = useState(null)
@@ -102,7 +103,6 @@ export default function ScoreTracker({ userId }) {
     const loadStats = async () => {
       if (!userId) {
         console.warn('ScoreTracker: Keine userId vorhanden')
-        // Zeige leere Stats
         setStats({
           id: 'unknown',
           full_name: 'Nutzer',
@@ -111,7 +111,8 @@ export default function ScoreTracker({ userId }) {
           high_fives_received: 0,
           sessions_played: 0,
           reliability_score: 50,
-          avg_rating: 0
+          avg_rating: 0,
+          win_loss_ratio: 0,
         })
         setLoading(false)
         return
@@ -123,13 +124,12 @@ export default function ScoreTracker({ userId }) {
         // Lade aktuelles User-Profil
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('id, full_name, name, mvp_count, high_fives_received, sessions_played, reliability_score, avg_rating')
+          .select('id, full_name, name, mvp_count, high_fives_received, sessions_played, reliability_score, avg_rating, win_loss_ratio')
           .eq('id', userId)
           .single()
         
         if (userError) {
           console.warn('User nicht gefunden, verwende Fallback:', userError)
-          // Fallback: Default stats
           setStats({
             id: userId,
             full_name: 'Nutzer',
@@ -138,7 +138,8 @@ export default function ScoreTracker({ userId }) {
             high_fives_received: 0,
             sessions_played: 0,
             reliability_score: 50,
-            avg_rating: 0
+            avg_rating: 0,
+            win_loss_ratio: 0,
           })
         } else {
           setStats(userData || {
@@ -149,7 +150,8 @@ export default function ScoreTracker({ userId }) {
             high_fives_received: 0,
             sessions_played: 0,
             reliability_score: 50,
-            avg_rating: 0
+            avg_rating: 0,
+            win_loss_ratio: 0,
           })
         }
 
@@ -183,7 +185,6 @@ export default function ScoreTracker({ userId }) {
         }
       } catch (err) {
         console.error('Fehler beim Laden der Statistiken:', err)
-        // Nicht fatal, zeige default Stats
         setStats({
           id: userId,
           full_name: 'Nutzer',
@@ -191,7 +192,8 @@ export default function ScoreTracker({ userId }) {
           high_fives_received: 0,
           sessions_played: 0,
           reliability_score: 50,
-          avg_rating: 0
+          avg_rating: 0,
+          win_loss_ratio: 0,
         })
       } finally {
         setLoading(false)
@@ -272,7 +274,7 @@ export default function ScoreTracker({ userId }) {
         <StatCard
           icon={TrendingUp}
           label="Gewinnquote"
-          value={`${Math.round(stats.win_loss_ratio * 100)}%`}
+          value={`${Math.round((stats.win_loss_ratio || 0) * 100)}%`}
           color="text-cyan-500"
         />
       </div>

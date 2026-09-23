@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { Search, Filter, Plus, RefreshCw, List, Map, LocateFixed, Loader2 } from 'lucide-react'
 import { isMissingSupabaseSchema, supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORTARTEN, SPORT_EMOJIS, GENDER_FILTERS } from '../lib/constants'
+import { SPORTARTEN, SPORT_EMOJIS, GENDER_FILTERS, toSportDbValue } from '../lib/constants'
 import SessionCard from '../components/SessionCard'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -104,7 +104,7 @@ export default function Entdecken() {
         const today = new Date().toISOString().split('T')[0]
         query = query.gte('date', today)
 
-        if (filters.sport) query = query.eq('sport', filters.sport)
+        if (filters.sport) query = query.eq('sport', toSportDbValue(filters.sport))
         if (!filters.radius && filters.city) query = query.ilike('location', `%${filters.city}%`)
         if (filters.gender) query = query.eq('gender_filter', filters.gender)
         if (filters.date) query = query.eq('date', filters.date)
@@ -473,7 +473,7 @@ export default function Entdecken() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-max">
           {sessions.map((session) => (
             <SessionCard
               key={session.id}

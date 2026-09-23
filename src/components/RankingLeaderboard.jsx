@@ -128,7 +128,7 @@ export default function RankingLeaderboard({ currentUserId, sport = null }) {
           console.warn('RPC-Fehler, lade Fallback-Daten...', error)
           const { data: allUsers, error: dbError } = await supabase
             .from('users')
-            .select('*')
+            .select('id, name, full_name, city, sports, avatar_url, mvp_count, high_fives_received, sessions_played, reliability_score, avg_rating')
             .limit(50)
           
           if (dbError) throw dbError
@@ -188,7 +188,7 @@ export default function RankingLeaderboard({ currentUserId, sport = null }) {
     setFilteredUsers(filtered)
   }, [users, searchQuery, filterTier, sortBy])
 
-  const currentUserRank = filteredUsers.findIndex(u => u.id === currentUserId) + 1
+  const currentUserRank = filteredUsers.findIndex(u => (u.id || u.user_id) === currentUserId) + 1
 
   if (loading) {
     return (

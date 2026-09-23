@@ -1,44 +1,96 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Zap, Menu, X, Plus, LogOut, User, Bell, Calendar } from 'lucide-react'
+import { Zap, Menu, X, Plus, LogOut, User, Bell, BellOff, Smartphone, Calendar } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { useAuth } from '../context/AuthContext'
 import { isMissingSupabaseSchema, supabase } from '../lib/supabase'
+import { usePushNotifications } from '../lib/usePushNotifications'
+import IOSInstallBanner from './IOSInstallBanner'
 import toast from 'react-hot-toast'
 
+function notifIcon(type) {
+  if (type === 'join') return '🙌'
+  if (type === 'new_session') return '📣'
+  return '👋'
+}
+
 function NotificationItem({ n, onClick }) {
-  const isJoin = n.type === 'join'
   return (
     <button
       onClick={() => onClick(n)}
       className={`w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 ${!n.read ? 'bg-primary/5' : ''}`}
     >
       <div className="flex items-start gap-3">
-        <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${!n.read ? 'bg-primary' : 'bg-transparent'}`} />
+        <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!n.read ? 'bg-primary' : 'bg-transparent'}`} />
         <div className="flex-1 min-w-0">
-          <p className={`text-sm leading-snug ${!n.read ? 'text-white' : 'text-muted'}`}>
+          <p className={`text-sm leading-snug ${!n.read ? 'text-white font-medium' : 'text-muted'}`}>
             {n.message}
           </p>
           <p className="text-xs text-muted/60 mt-1">
             {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: de })}
           </p>
         </div>
-        <span className="text-lg shrink-0">{isJoin ? '🙌' : '👋'}</span>
+        <span className="text-lg shrink-0">{notifIcon(n.type)}</span>
       </div>
     </button>
   )
 }
 
+// Detect iOS Safari (not standalone = not installed as PWA)
+const isIOS = typeof navigator !== 'undefined' &&
+  /iphone|ipad|ipod/i.test(navigator.userAgent)
+const isStandalone = typeof window !== 'undefined' &&
+  (window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+const isIOSBrowser = isIOS && !isStandalone // needs Home Screen install for push
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)
+  const [iosBannerOpen, setIosBannerOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const notiRef = useRef(null)
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
+  const { supported: pushSupported, subscribed, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications(user)
+
+  // Show push button on mobile: either push is supported OR it's iOS (show install guide)
+  const showPushBtn = user && (pushSupported || isIOSBrowser)
+
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  const handlePushToggle = async () => {
+    if (subscribed) {
+      await unsubscribe()
+      toast('Push-Benachrichtigungen deaktiviert.', {
+        style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' },
+      })
+      return
+    }
+
+    const result = await subscribe()
+    if (result === 'ok') {
+      toast.success('Push-Benachrichtigungen aktiviert!')
+    } else if (result === 'denied') {
+      toast.error(
+        'Benachrichtigungen sind blockiert. Klicke auf 🔒 in der Adressleiste → "Benachrichtigungen" → "Zulassen".',
+        { duration: 7000 }
+      )
+    } else if (result === 'default') {
+      // Chrome suppressed the dialog (Quiet Notification mode)
+      toast(
+        'Browser hat den Dialog blockiert. Klicke auf das 🔔-Symbol in der Adressleiste und wähle "Zulassen".',
+        {
+          duration: 8000,
+          icon: '🔔',
+          style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '360px' },
+        }
+      )
+    } else {
+      toast.error('Push konnte nicht aktiviert werden. Öffne die Browser-Konsole für Details.')
+    }
+  }
 
   const navLinkClass = ({ isActive }) =>
     `text-sm font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted hover:text-white'}`
@@ -84,10 +136,27 @@ export default function Navbar() {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         }, (payload) => {
-          setNotifications((prev) => [payload.new, ...prev])
-          toast(`🔔 ${payload.new.message}`, {
-            style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
-          })
+          const n = payload.new
+          setNotifications((prev) => [n, ...prev])
+          const icon = notifIcon(n.type)
+          toast(
+            (t) => (
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id)
+                  if (n.session_id) navigate(`/session/${n.session_id}`)
+                }}
+                className="flex items-start gap-2 text-left w-full"
+              >
+                <span>{icon}</span>
+                <span className="text-sm leading-snug">{n.message}</span>
+              </button>
+            ),
+            {
+              duration: n.type === 'new_session' ? 6000 : 4000,
+              style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', maxWidth: '360px' },
+            }
+          )
         })
         .subscribe()
     }
@@ -112,9 +181,8 @@ export default function Navbar() {
   }, [])
 
   const handleNotiClick = async (n) => {
-    // Mark as read immediately in UI
     setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))
-    if (!n.read) {
+    if (!n.read && user) {
       const { error } = await supabase.from('notifications').update({ read: true }).eq('id', n.id).eq('user_id', user.id)
       if (error && !isMissingSupabaseSchema(error)) {
         console.warn('Benachrichtigung konnte nicht aktualisiert werden:', error)
@@ -127,7 +195,7 @@ export default function Navbar() {
   }
 
   const markAllRead = async () => {
-    if (unreadCount === 0) return
+    if (unreadCount === 0 || !user) return
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
     const { error } = await supabase
       .from('notifications')
@@ -153,6 +221,7 @@ export default function Navbar() {
   const closeMenu = () => setMenuOpen(false)
 
   return (
+    <>
     <nav className="sticky top-0 z-50 bg-dark/80 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -180,10 +249,11 @@ export default function Navbar() {
               <>
                 <Link
                   to="/session/erstellen"
-                  className="flex items-center gap-2 bg-primary text-dark text-sm font-bold px-4 py-2 rounded-lg hover:bg-green-400 transition-colors"
+                  title="Session erstellen"
+                  className="flex items-center gap-2 bg-primary text-dark text-sm font-bold px-3 py-2 rounded-lg hover:bg-green-400 transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
-                  Session erstellen
+                  <Plus className="w-4 h-4 shrink-0" />
+                  <span className="hidden lg:inline">Session erstellen</span>
                 </Link>
 
                 {/* Notifications bell */}
@@ -227,6 +297,23 @@ export default function Navbar() {
                   )}
                 </div>
 
+                {/* Push notification toggle (desktop) — Smartphone icon, clearly distinct from Bell */}
+                {pushSupported && (
+                  <button
+                    onClick={handlePushToggle}
+                    disabled={pushLoading}
+                    title={subscribed ? 'Geräte-Push deaktivieren' : 'Geräte-Push aktivieren (auch offline)'}
+                    className={`relative p-2 transition-colors disabled:opacity-40 ${
+                      subscribed ? 'text-primary hover:text-red-400' : 'text-muted hover:text-primary'
+                    }`}
+                  >
+                    <Smartphone className="w-5 h-5" />
+                    {subscribed && (
+                      <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-dark" />
+                    )}
+                  </button>
+                )}
+
                 <button
                   onClick={handleSignOut}
                   className="flex items-center gap-2 text-muted hover:text-white text-sm font-medium transition-colors px-2 py-2"
@@ -247,8 +334,31 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile: bell + hamburger */}
-          <div className="md:hidden flex items-center gap-2">
+          {/* Mobile: push/install + bell + hamburger */}
+          <div className="md:hidden flex items-center gap-1">
+            {/* Push toggle / iOS install button */}
+            {showPushBtn && (
+              <button
+                onClick={isIOSBrowser ? () => setIosBannerOpen(true) : handlePushToggle}
+                disabled={!isIOSBrowser && pushLoading}
+                title={
+                  isIOSBrowser
+                    ? 'App installieren für Push-Benachrichtigungen'
+                    : subscribed
+                    ? 'Geräte-Push deaktivieren'
+                    : 'Geräte-Push aktivieren (auch offline)'
+                }
+                className={`relative p-2 transition-colors disabled:opacity-40 ${
+                  subscribed ? 'text-primary' : 'text-muted hover:text-primary'
+                }`}
+              >
+                <Smartphone className="w-5 h-5" />
+                {subscribed && (
+                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-dark" />
+                )}
+              </button>
+            )}
+
             {user && (
               <div className="relative" ref={notiRef}>
                 <button
@@ -331,6 +441,16 @@ export default function Navbar() {
                     <Plus className="w-4 h-4" />
                     Session erstellen
                   </Link>
+                  {pushSupported && (
+                    <button
+                      onClick={handlePushToggle}
+                      disabled={pushLoading}
+                      className={`flex items-center justify-center gap-2 text-sm font-medium transition-colors py-2 disabled:opacity-50 ${subscribed ? 'text-primary' : 'text-muted hover:text-primary'}`}
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      {subscribed ? 'Geräte-Push aktiv – deaktivieren' : 'Geräte-Push aktivieren (auch offline)'}
+                    </button>
+                  )}
                   <button onClick={handleSignOut} className="flex items-center justify-center gap-2 text-muted hover:text-white text-sm font-medium transition-colors py-2">
                     <LogOut className="w-4 h-4" />
                     Abmelden
@@ -350,6 +470,11 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
     </nav>
+
+    {/* iOS install banner — outside <nav> so backdrop-blur doesn't break fixed positioning */}
+    <IOSInstallBanner open={iosBannerOpen} onClose={() => setIosBannerOpen(false)} />
+    </>
   )
 }

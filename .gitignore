@@ -5,3 +5,11 @@ dist/
 .DS_Store
 *.local
 .vercel
+test-results/
+bilder/
+supabase/.temp/
+.claude/
+/video/
+
+
+

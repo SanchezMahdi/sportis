@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { getAuthRedirectUrl, isMissingSupabaseSchema, supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
+const PROFILE_SELECT = 'id, name, full_name, city, gender, sports, avatar_url, mvp_count, high_fives_received, sessions_played, reliability_score, win_loss_ratio, avg_rating, last_activity, created_at'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -35,7 +36,7 @@ export function AuthProvider({ children }) {
       email,
       password,
       options: {
-        emailRedirectTo: getAuthRedirectUrl('/entdecken'),
+        emailRedirectTo: getAuthRedirectUrl('/login?confirmed=1'),
         data: {
           name: userData.name,
         },
@@ -44,8 +45,9 @@ export function AuthProvider({ children }) {
 
     if (error) throw error
 
-    // If user was created and we have a session, insert into users table
-    if (data.user) {
+    // With email confirmation enabled there is no authenticated session yet.
+    // In that case the database trigger creates the profile after auth.users insert.
+    if (data.user && data.session) {
       const { error: profileError } = await supabase.from('users').upsert({
         id: data.user.id,
         email: email,
@@ -89,10 +91,15 @@ export function AuthProvider({ children }) {
       .from('users')
       .update(updates)
       .eq('id', user.id)
-      .select()
+      .select(PROFILE_SELECT)
       .single()
 
     if (error) throw error
+
+    if (updates.name !== undefined) {
+      await supabase.auth.updateUser({ data: { name: updates.name } })
+    }
+
     return data
   }
 

@@ -57,6 +57,7 @@ create table public.messages (
   session_id uuid references public.sessions(id) on delete cascade not null,
   user_id uuid references public.users(id) on delete cascade not null,
   text text not null,
+  content text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -249,6 +250,54 @@ create trigger on_session_join
   after insert on public.session_participants
   for each row execute procedure public.handle_session_join();
 
+-- Function: notify users when a new session is created
+create or replace function public.handle_new_session()
+returns trigger as $$
+declare
+  v_creator_name text;
+  v_sport_label  text;
+  v_date_str     text;
+begin
+  select name into v_creator_name from public.users where id = new.creator_id;
+
+  v_sport_label := case new.sport
+    when 'football'     then 'Fußball ⚽'
+    when 'volleyball'   then 'Volleyball 🏐'
+    when 'basketball'   then 'Basketball 🏀'
+    when 'tennis'       then 'Tennis 🎾'
+    when 'table_tennis' then 'Tischtennis 🏓'
+    else new.sport
+  end;
+
+  v_date_str := to_char(new.date, 'DD.MM.YYYY');
+
+  -- Notify users who have a matching sport preference or no preference set
+  insert into public.notifications (user_id, message, type, session_id)
+  select
+    u.id,
+    v_creator_name
+      || ' hat eine neue ' || v_sport_label
+      || ' Session erstellt: "' || new.title
+      || '" – ' || v_date_str
+      || ' in ' || new.location,
+    'new_session',
+    new.id
+  from public.users u
+  where u.id != new.creator_id
+    and (
+      new.sport = any(u.sports)
+      or u.sports = '{}'::text[]
+      or u.sports is null
+    );
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_session_created
+  after insert on public.sessions
+  for each row execute procedure public.handle_new_session();
+
 -- Function: delete a session (bypasses RLS ambiguity)
 create or replace function public.delete_session(p_session_id uuid)
 returns void
@@ -330,4 +379,3 @@ grant execute on function public.cleanup_expired_sessions() to authenticated;
 
 -- (Optional) Auto-run cleanup every night at midnight via pg_cron:
 -- select cron.schedule('cleanup-expired-sessions', '0 0 * * *', 'select public.cleanup_expired_sessions()');
-

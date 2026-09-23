@@ -1,392 +1,289 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Zap, Eye, EyeOff, Mail, Lock, User, MapPin } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { User, Mail, EyeOff, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
-import { SPORTARTEN, GENDER_FILTERS } from '../lib/constants'
-
-function InputField({ label, error, icon: Icon, ...props }) {
-  const [showPass, setShowPass] = useState(false)
-  const isPassword = props.type === 'password'
-  const inputType = isPassword ? (showPass ? 'text' : 'password') : props.type
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-white text-sm font-medium">{label}</label>
-      <div className="relative">
-        {Icon && (
-          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-        )}
-        <input
-          {...props}
-          type={inputType}
-          className={`w-full bg-dark border rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary transition-colors ${
-            Icon ? 'pl-10' : ''
-          } ${isPassword ? 'pr-10' : ''} ${
-            error ? 'border-red-500' : 'border-white/10 focus:border-primary'
-          }`}
-        />
-        {isPassword && (
-          <button
-            type="button"
-            onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white transition-colors"
-          >
-            {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        )}
-      </div>
-      {error && <p className="text-red-400 text-xs">{error}</p>}
-    </div>
-  )
-}
+import { supabase } from '../lib/supabase'
 
 export default function Login() {
-  const [tab, setTab] = useState('login')
+  const [isLoginMode, setIsLoginMode] = useState(false) // default in Figma is "Create your account"
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { user, signIn, signUp } = useAuth()
+  const [acceptTerms, setAcceptTerms] = useState(true)
+
+  const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  // Login form
-  const [loginData, setLoginData] = useState({ email: '', password: '' })
-  const [loginErrors, setLoginErrors] = useState({})
-
-  // Register form
-  const [registerData, setRegisterData] = useState({
-    name: '',
-    email: '',
+  const [formData, setFormData] = useState({
+    username: 'mehrabbozorgi',
+    email: 'mehrabbozorgi.business@gmail.com',
     password: '',
-    city: '',
-    gender: '',
-    sports: [],
+    confirmPassword: '',
   })
-  const [registerErrors, setRegisterErrors] = useState({})
 
-  useEffect(() => {
-    if (user) {
-      navigate('/entdecken')
-    }
-  }, [user, navigate])
-
-  // Login validation
-  const validateLogin = () => {
-    const errors = {}
-    if (!loginData.email) errors.email = 'E-Mail ist erforderlich'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginData.email))
-      errors.email = 'Ungültige E-Mail-Adresse'
-    if (!loginData.password) errors.password = 'Passwort ist erforderlich'
-    return errors
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Register validation
-  const validateRegister = () => {
-    const errors = {}
-    if (!registerData.name.trim()) errors.name = 'Name ist erforderlich'
-    if (!registerData.email) errors.email = 'E-Mail ist erforderlich'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email))
-      errors.email = 'Ungültige E-Mail-Adresse'
-    if (!registerData.password) errors.password = 'Passwort ist erforderlich'
-    else if (registerData.password.length < 6)
-      errors.password = 'Passwort muss mindestens 6 Zeichen haben'
-    return errors
-  }
-
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const errors = validateLogin()
-    setLoginErrors(errors)
-    if (Object.keys(errors).length > 0) return
+
+    if (!formData.email) {
+      toast.error('Bitte gib deine E-Mail-Adresse ein.')
+      return
+    }
+
+    if (!formData.password) {
+      toast.error('Bitte gib dein Passwort ein.')
+      return
+    }
+
+    if (!isLoginMode && formData.password !== formData.confirmPassword) {
+      toast.error('Passwörter stimmen nicht überein.')
+      return
+    }
+
+    if (!isLoginMode && !acceptTerms) {
+      toast.error('Bitte akzeptiere die Nutzungsbedingungen.')
+      return
+    }
 
     setLoading(true)
+
     try {
-      await signIn(loginData.email, loginData.password)
-      toast.success('Willkommen zurück!')
-      navigate('/entdecken')
+      if (isLoginMode) {
+        await signIn(formData.email, formData.password)
+        toast.success('Willkommen zurück!')
+        navigate('/profil')
+      } else {
+        const result = await signUp(formData.email, formData.password, {
+          name: formData.username,
+        })
+        if (result.session) {
+          toast.success('Konto erfolgreich erstellt! Willkommen bei Sportis! 🎉')
+          navigate('/profil')
+        } else {
+          toast.success('Konto erstellt! Bitte prüfe deine E-Mail für die Bestätigung.')
+          setIsLoginMode(true)
+        }
+      }
     } catch (err) {
+      console.error(err)
       const msg = err?.message || ''
-      if (msg.includes('Invalid login credentials')) {
+      if (msg.includes('Invalid login')) {
         toast.error('E-Mail oder Passwort ist falsch.')
-      } else if (msg.includes('Email not confirmed')) {
-        toast.error('Bitte bestätige zuerst deine E-Mail-Adresse.')
+      } else if (msg.includes('already registered')) {
+        toast.error('Diese E-Mail ist bereits registriert. Bitte melde dich an.')
+        setIsLoginMode(true)
       } else {
-        toast.error('Anmeldung fehlgeschlagen. Bitte versuche es erneut.')
+        toast.error('Authentifizierung fehlgeschlagen: ' + msg)
       }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRegister = async (e) => {
-    e.preventDefault()
-    const errors = validateRegister()
-    setRegisterErrors(errors)
-    if (Object.keys(errors).length > 0) return
-
-    setLoading(true)
+  const handleOAuth = async (provider) => {
     try {
-      await signUp(registerData.email, registerData.password, {
-        name: registerData.name,
-        city: registerData.city,
-        gender: registerData.gender,
-        sports: registerData.sports,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin + '/profil',
+        },
       })
-      toast.success('Registrierung erfolgreich! Willkommen bei Sportis!')
-      navigate('/entdecken')
+      if (error) throw error
     } catch (err) {
-      console.error('Registrierung fehlgeschlagen:', err)
-      const msg = err?.message || ''
-      if (msg.includes('User already registered') || msg.includes('already been registered')) {
-        toast.error('Diese E-Mail-Adresse ist bereits registriert.')
-      } else if (msg.includes('Password should be')) {
-        toast.error('Passwort zu schwach. Mindestens 6 Zeichen verwenden.')
-      } else if (msg.includes('Database error saving new user')) {
-        toast.error('Registrierung fehlgeschlagen: Datenbank-Profil konnte nicht erstellt werden.')
-      } else if (msg.includes('Signups not allowed')) {
-        toast.error('Registrierung ist in Supabase aktuell deaktiviert.')
-      } else if (msg.includes('Invalid API key') || msg.includes('JWT')) {
-        toast.error('Registrierung fehlgeschlagen: Supabase API-Key ist ungültig.')
-      } else if (msg.includes('rate limit')) {
-        toast.error('Zu viele Registrierungsversuche. Bitte später erneut versuchen.')
-      } else {
-        toast.error('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
-      }
-    } finally {
-      setLoading(false)
+      toast.error(`${provider} Login derzeit nicht konfiguriert.`)
     }
-  }
-
-  const toggleSport = (sport) => {
-    setRegisterData((prev) => ({
-      ...prev,
-      sports: prev.sports.includes(sport)
-        ? prev.sports.filter((s) => s !== sport)
-        : [...prev.sports, sport],
-    }))
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 group mb-6">
-            <div className="bg-primary rounded-lg p-2 group-hover:bg-green-400 transition-colors">
-              <Zap className="w-6 h-6 text-dark" fill="currentColor" />
-            </div>
-            <span className="text-white font-black text-2xl tracking-tight">
-              sport<span className="text-primary">is</span>
-            </span>
-          </Link>
-          <h1 className="text-2xl font-bold text-white mt-2">
-            {tab === 'login' ? 'Willkommen zurück!' : 'Werde Teil der Community'}
-          </h1>
-          <p className="text-muted text-sm mt-1">
-            {tab === 'login'
-              ? 'Melde dich an, um loszulegen.'
-              : 'Erstelle dein kostenloses Konto.'}
-          </p>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex bg-card rounded-xl p-1 mb-8 border border-white/10">
-          <button
-            onClick={() => setTab('login')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-              tab === 'login'
-                ? 'bg-primary text-dark shadow'
-                : 'text-muted hover:text-white'
-            }`}
-          >
-            Anmelden
-          </button>
-          <button
-            onClick={() => setTab('register')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-              tab === 'register'
-                ? 'bg-primary text-dark shadow'
-                : 'text-muted hover:text-white'
-            }`}
-          >
-            Registrieren
-          </button>
-        </div>
-
-        {/* Login form */}
-        {tab === 'login' && (
-          <form onSubmit={handleLogin} className="flex flex-col gap-5">
-            <InputField
-              label="E-Mail"
-              type="email"
-              icon={Mail}
-              placeholder="name@beispiel.de"
-              value={loginData.email}
-              onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-              error={loginErrors.email}
-              autoComplete="email"
-            />
-            <InputField
-              label="Passwort"
-              type="password"
-              icon={Lock}
-              placeholder="Dein Passwort"
-              value={loginData.password}
-              onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-              error={loginErrors.password}
-              autoComplete="current-password"
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-dark font-bold py-3.5 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" />
-                  Anmelden...
-                </>
-              ) : (
-                'Anmelden'
-              )}
-            </button>
-
-            <p className="text-center text-muted text-sm">
-              Noch kein Konto?{' '}
-              <button
-                type="button"
-                onClick={() => setTab('register')}
-                className="text-primary hover:text-green-400 font-medium transition-colors"
-              >
-                Jetzt registrieren
-              </button>
+    <div className="min-h-screen bg-[#F4F7FC] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-['Inter',sans-serif]">
+      <div className="max-w-5xl w-full bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+        
+        {/* ────────────────────────────────────────────────────────────────── */}
+        {/* LEFT COLUMN: Account Form & Social Logins (Figma)                  */}
+        {/* ────────────────────────────────────────────────────────────────── */}
+        <div className="lg:col-span-6 p-8 sm:p-12 lg:p-14 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#6370E9]/35">
+          
+          <div>
+            {/* Heading & Subheading */}
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-950 tracking-tight mb-2">
+              {isLoginMode ? 'Welcome back' : 'Create your account'}
+            </h1>
+            <p className="text-sm text-gray-500 mb-8">
+              {isLoginMode ? 'Sign in to access your sessions' : 'Unlock all Features!'}
             </p>
-          </form>
-        )}
 
-        {/* Register form */}
-        {tab === 'register' && (
-          <form onSubmit={handleRegister} className="flex flex-col gap-5">
-            <InputField
-              label="Name *"
-              type="text"
-              icon={User}
-              placeholder="Dein Vorname"
-              value={registerData.name}
-              onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-              error={registerErrors.name}
-              autoComplete="given-name"
-            />
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              
+              {/* Username (only in register mode) */}
+              {!isLoginMode && (
+                <div className="relative">
+                  <User className="w-5 h-5 text-[#818CF8] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    value={formData.username}
+                    onChange={(e) => handleChange('username', e.target.value)}
+                    className="w-full h-12 bg-[#EEF2FF]/60 border border-[#C7D2FE]/70 rounded-xl pl-11 pr-4 text-sm text-gray-800 placeholder-[#9CA3AF] focus:outline-none focus:border-[#6384F7] focus:ring-1 focus:ring-[#6384F7] transition-colors"
+                  />
+                </div>
+              )}
 
-            <InputField
-              label="E-Mail *"
-              type="email"
-              icon={Mail}
-              placeholder="name@beispiel.de"
-              value={registerData.email}
-              onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-              error={registerErrors.email}
-              autoComplete="email"
-            />
-
-            <InputField
-              label="Passwort *"
-              type="password"
-              icon={Lock}
-              placeholder="Mindestens 6 Zeichen"
-              value={registerData.password}
-              onChange={(e) =>
-                setRegisterData({ ...registerData, password: e.target.value })
-              }
-              error={registerErrors.password}
-              autoComplete="new-password"
-            />
-
-            <InputField
-              label="Stadt"
-              type="text"
-              icon={MapPin}
-              placeholder="z.B. Berlin, München, Hamburg"
-              value={registerData.city}
-              onChange={(e) => setRegisterData({ ...registerData, city: e.target.value })}
-              autoComplete="address-level2"
-            />
-
-            {/* Gender select */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-white text-sm font-medium">Geschlecht</label>
-              <select
-                value={registerData.gender}
-                onChange={(e) =>
-                  setRegisterData({ ...registerData, gender: e.target.value })
-                }
-                className="w-full bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors appearance-none"
-              >
-                <option value="">Bitte wählen (optional)</option>
-                <option value="Weiblich">Weiblich</option>
-                <option value="Männlich">Männlich</option>
-                <option value="Divers">Divers</option>
-                <option value="Keine Angabe">Keine Angabe</option>
-              </select>
-            </div>
-
-            {/* Sports multi-select */}
-            <div className="flex flex-col gap-2">
-              <label className="text-white text-sm font-medium">
-                Meine Sportarten{' '}
-                <span className="text-muted font-normal">(optional)</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {SPORTARTEN.map((sport) => {
-                  const selected = registerData.sports.includes(sport)
-                  return (
-                    <button
-                      key={sport}
-                      type="button"
-                      onClick={() => toggleSport(sport)}
-                      className={`text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
-                        selected
-                          ? 'bg-primary/20 border-primary text-primary'
-                          : 'bg-dark border-white/10 text-muted hover:border-white/30 hover:text-white'
-                      }`}
-                    >
-                      {sport}
-                    </button>
-                  )
-                })}
+              {/* Email */}
+              <div className="relative">
+                <Mail className="w-5 h-5 text-[#818CF8] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  className="w-full h-12 bg-[#EEF2FF]/60 border border-[#C7D2FE]/70 rounded-xl pl-11 pr-4 text-sm text-gray-800 placeholder-[#9CA3AF] focus:outline-none focus:border-[#6384F7] focus:ring-1 focus:ring-[#6384F7] transition-colors"
+                />
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-dark font-bold py-3.5 rounded-xl hover:bg-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-dark border-t-transparent rounded-full animate-spin" />
-                  Registrieren...
-                </>
-              ) : (
-                'Kostenlos registrieren'
+              {/* Password */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#818CF8] hover:text-[#4F46E5] focus:outline-none"
+                >
+                  {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                </button>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  className="w-full h-12 bg-[#EEF2FF]/60 border border-[#C7D2FE]/70 rounded-xl pl-11 pr-4 text-sm text-gray-800 placeholder-[#9CA3AF] focus:outline-none focus:border-[#6384F7] focus:ring-1 focus:ring-[#6384F7] transition-colors"
+                />
+              </div>
+
+              {/* Confirm Password (only in register mode) */}
+              {!isLoginMode && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#818CF8] hover:text-[#4F46E5] focus:outline-none"
+                  >
+                    {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                  </button>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Confirm Password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                    className="w-full h-12 bg-[#EEF2FF]/60 border border-[#C7D2FE]/70 rounded-xl pl-11 pr-4 text-sm text-gray-800 placeholder-[#9CA3AF] focus:outline-none focus:border-[#6384F7] focus:ring-1 focus:ring-[#6384F7] transition-colors"
+                  />
+                </div>
               )}
+
+              {/* Accept terms and conditions checkbox */}
+              {!isLoginMode && (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-[#6384F7] focus:ring-[#6384F7] cursor-pointer"
+                  />
+                  <label htmlFor="terms" className="text-xs text-gray-500 cursor-pointer">
+                    Accept <span className="text-[#6384F7] hover:underline">terms and conditions</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Blue Submit Button: "LOG IN" / "SIGN UP" */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 mt-2 bg-[#6E8BF7] hover:bg-[#5B7BF0] text-white font-bold text-sm tracking-wider uppercase rounded-xl transition-all shadow-xs disabled:opacity-50"
+              >
+                {loading ? 'Please wait...' : isLoginMode ? 'LOG IN' : 'SIGN UP'}
+              </button>
+            </form>
+
+            {/* Switch Mode Prompt: "You have account? Login now" */}
+            <div className="text-center mt-5">
+              <p className="text-xs text-gray-500">
+                {isLoginMode ? "Don't have an account? " : 'You have account? '}
+                <button
+                  type="button"
+                  onClick={() => setIsLoginMode(!isLoginMode)}
+                  className="text-[#3B82F6] font-semibold hover:underline"
+                >
+                  {isLoginMode ? 'Register now' : 'Login now'}
+                </button>
+              </p>
+            </div>
+          </div>
+
+          {/* Social Logins: Google, Apple, Microsoft */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-8 mt-6 border-t border-gray-100">
+            {/* Google */}
+            <button
+              type="button"
+              onClick={() => handleOAuth('google')}
+              className="inline-flex items-center gap-2 bg-white border border-gray-200/90 hover:bg-gray-50 text-gray-700 text-xs font-medium px-3.5 py-2 rounded-xl shadow-2xs transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              <span>Sign in with Google</span>
             </button>
 
-            <p className="text-center text-muted text-xs leading-relaxed">
-              Mit der Registrierung stimmst du unseren Nutzungsbedingungen zu.
-            </p>
+            {/* Apple */}
+            <button
+              type="button"
+              onClick={() => handleOAuth('apple')}
+              className="inline-flex items-center gap-2 bg-white border border-gray-200/90 hover:bg-gray-50 text-gray-700 text-xs font-medium px-3.5 py-2 rounded-xl shadow-2xs transition-colors"
+            >
+              <svg className="w-4 h-4 fill-current text-black" viewBox="0 0 170 170">
+                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.04-7.69-7.79-11.97-14.24-6.85-10.33-12.1-22.18-15.75-35.56-3.66-13.38-5.49-25.29-5.49-35.73 0-15.22 3.8-27.46 11.41-36.72 7.61-9.26 17.1-13.99 28.46-14.19 4.14 0 9.04 1.14 14.7 3.42 5.66 2.28 9.29 3.42 10.9 3.42 1.41 0 5.23-1.22 11.45-3.65 6.22-2.44 11.49-3.48 15.82-3.13 12.08.65 21.6 4.78 28.56 12.39-10.77 6.53-16.05 15.44-15.83 26.74.22 8.92 3.59 16.2 10.11 21.85 6.52 5.66 14.13 8.81 22.83 9.46-2.18 6.53-4.8 12.83-7.85 18.91zM119.22 32.74c0-7.29 2.61-14.13 7.83-20.52 5.22-6.39 11.63-10.55 19.24-12.22.43 1.09.65 2.18.65 3.26 0 7.29-2.66 14.24-7.99 20.85-5.33 6.61-11.85 10.74-19.57 12.39-.11-1.2-.16-2.45-.16-3.76z" />
+              </svg>
+              <span>Sign in with Apple</span>
+            </button>
 
-            <p className="text-center text-muted text-sm">
-              Schon ein Konto?{' '}
-              <button
-                type="button"
-                onClick={() => setTab('login')}
-                className="text-primary hover:text-green-400 font-medium transition-colors"
-              >
-                Jetzt anmelden
-              </button>
-            </p>
-          </form>
-        )}
+            {/* Microsoft */}
+            <button
+              type="button"
+              onClick={() => handleOAuth('azure')}
+              className="inline-flex items-center gap-2 bg-white border border-gray-200/90 hover:bg-gray-50 text-gray-700 text-xs font-medium px-3.5 py-2 rounded-xl shadow-2xs transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+              </svg>
+              <span>Sign in with Microsoft</span>
+            </button>
+          </div>
+
+        </div>
+
+        {/* ────────────────────────────────────────────────────────────────── */}
+        {/* RIGHT COLUMN: Sports Graphic / Illustration Cluster (Figma)        */}
+        {/* ────────────────────────────────────────────────────────────────── */}
+        <div className="lg:col-span-6 bg-white flex items-center justify-center relative select-none p-4 sm:p-6 lg:p-8 overflow-hidden">
+          <div className="relative w-full h-full flex items-center justify-center">
+            <img 
+              src="/figma/login_sports_cluster_exact_hd.png" 
+              alt="Sportis Community Sports Illustration" 
+              className="w-full h-auto max-h-[640px] object-contain transition-transform hover:scale-[1.01] duration-500" 
+            />
+          </div>
+        </div>
+
       </div>
     </div>
   )

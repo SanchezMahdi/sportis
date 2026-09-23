@@ -1,7 +1,8 @@
-import { SPORT_EMOJIS } from '../lib/constants'
+import { SPORT_EMOJIS, toSportLabel } from '../lib/constants'
 
 export default function SportIcon({ sport, showName = true, size = 'md' }) {
-  const emoji = SPORT_EMOJIS[sport] || '🏃'
+  const sportLabel = toSportLabel(sport)
+  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
 
   const sizes = {
     sm: { emoji: 'text-sm', text: 'text-xs' },
@@ -14,11 +15,11 @@ export default function SportIcon({ sport, showName = true, size = 'md' }) {
 
   return (
     <span className="inline-flex items-center gap-1">
-      <span className={emojiSize} role="img" aria-label={sport}>
+      <span className={emojiSize} role="img" aria-label={sportLabel}>
         {emoji}
       </span>
       {showName && (
-        <span className={`${textSize} font-medium`}>{sport}</span>
+        <span className={`${textSize} font-medium`}>{sportLabel}</span>
       )}
     </span>
   )

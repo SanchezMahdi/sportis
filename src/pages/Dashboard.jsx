@@ -5,14 +5,14 @@ import { format, parseISO, isFuture, isPast } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { isMissingSupabaseSchema, supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORT_EMOJIS } from '../lib/constants'
+import { SPORT_EMOJIS, toSportLabel } from '../lib/constants'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 function TabButton({ active, onClick, children, count }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-all border-b-2 ${
+      className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-all border-b-2 shrink-0 whitespace-nowrap ${
         active ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-white'
       }`}
     >
@@ -31,7 +31,8 @@ function SessionRow({ session }) {
     ? format(parseISO(session.date), 'EEE, d. MMM yyyy', { locale: de })
     : ''
   const timeStr = session.time?.slice(0, 5) || ''
-  const emoji = SPORT_EMOJIS[session.sport] || '🏃'
+  const sportLabel = toSportLabel(session.sport)
+  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
   const count = session.session_participants?.length ?? 0
 
   return (
@@ -137,17 +138,18 @@ export default function Dashboard() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-black text-white">Meine Sessions</h1>
-          <p className="text-muted mt-1">Übersicht über deine Aktivitäten</p>
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-black text-white truncate">Meine Sessions</h1>
+          <p className="text-muted mt-1 text-sm">Übersicht über deine Aktivitäten</p>
         </div>
         <Link
           to="/session/erstellen"
-          className="flex items-center gap-2 bg-primary text-dark font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-green-400 transition-colors"
+          className="flex items-center gap-2 bg-primary text-dark font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-green-400 transition-colors shrink-0"
         >
           <Plus className="w-4 h-4" />
-          Erstellen
+          <span className="hidden sm:inline">Erstellen</span>
+          <span className="sm:hidden">Neu</span>
         </Link>
       </div>
 
@@ -172,19 +174,23 @@ export default function Dashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-white/10 mb-6 flex gap-1 overflow-x-auto">
-        <TabButton active={tab === 'upcoming'} onClick={() => setTab('upcoming')} count={upcomingCreated.length + upcomingJoined.length}>
-          Kommend
-        </TabButton>
-        <TabButton active={tab === 'created'} onClick={() => setTab('created')} count={createdSessions.length}>
-          Erstellt
-        </TabButton>
-        <TabButton active={tab === 'joined'} onClick={() => setTab('joined')} count={joinedSessions.length}>
-          Beigetreten
-        </TabButton>
-        <TabButton active={tab === 'past'} onClick={() => setTab('past')} count={pastCreated.length + pastJoined.length}>
-          Vergangen
-        </TabButton>
+      <div className="relative mb-6">
+        <div className="border-b border-white/10 flex gap-0 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabButton active={tab === 'upcoming'} onClick={() => setTab('upcoming')} count={upcomingCreated.length + upcomingJoined.length}>
+            Kommend
+          </TabButton>
+          <TabButton active={tab === 'created'} onClick={() => setTab('created')} count={createdSessions.length}>
+            Erstellt
+          </TabButton>
+          <TabButton active={tab === 'joined'} onClick={() => setTab('joined')} count={joinedSessions.length}>
+            <span className="sm:hidden">Dabei</span>
+            <span className="hidden sm:inline">Beigetreten</span>
+          </TabButton>
+          <TabButton active={tab === 'past'} onClick={() => setTab('past')} count={pastCreated.length + pastJoined.length}>
+            <span className="sm:hidden">Früher</span>
+            <span className="hidden sm:inline">Vergangen</span>
+          </TabButton>
+        </div>
       </div>
 
       {/* Content */}

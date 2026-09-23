@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import FigmaSessionDetail from './FigmaSessionDetail'
 import {
   Calendar,
   MapPin,
@@ -22,7 +23,17 @@ import { de } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORT_EMOJIS, SKILL_COLORS, SPORTARTEN, SKILL_LEVELS, GENDER_FILTERS } from '../lib/constants'
+import {
+  SPORT_EMOJIS,
+  SKILL_COLORS,
+  SPORTARTEN,
+  SKILL_LEVELS,
+  GENDER_FILTERS,
+  toSkillDbValue,
+  toSkillLabel,
+  toSportDbValue,
+  toSportLabel,
+} from '../lib/constants'
 import DOMPurify from 'dompurify'
 import LoadingSpinner from '../components/LoadingSpinner'
 import WeatherWidget from '../components/WeatherWidget'
@@ -62,13 +73,15 @@ function ChatMessage({ message, isOwn }) {
   try {
     time = format(new Date(message.created_at), 'HH:mm', { locale: de })
   } catch {}
+  const senderName = message.user?.name || 'Unbekannter Nutzer'
+  const messageText = message.text || message.content || ''
 
   return (
     <div className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
-      <Avatar name={message.user?.name} size="sm" />
+      <Avatar name={senderName} avatarUrl={message.user?.avatar_url} size="sm" />
       <div className={`flex flex-col gap-1 max-w-[75%] ${isOwn ? 'items-end' : ''}`}>
         <div className="flex items-center gap-2">
-          <span className="text-muted text-xs">{message.user?.name}</span>
+          <span className="text-muted text-xs">{senderName}</span>
           <span className="text-muted/60 text-xs">{time}</span>
         </div>
         <div
@@ -78,15 +91,58 @@ function ChatMessage({ message, isOwn }) {
               : 'bg-card border border-white/10 text-white rounded-tl-sm'
           }`}
         >
-          {message.text}
+          {messageText}
         </div>
       </div>
     </div>
   )
 }
 
+function isMissingMessageUserProfileError(error) {
+  const serialized = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`
+  return error?.code === '23503' && serialized.includes('messages_user_id_fkey')
+}
+
+function isAuthMessageError(error) {
+  const serialized = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
+  return (
+    error?.status === 401 ||
+    error?.code === '42501' ||
+    serialized.includes('jwt') ||
+    serialized.includes('auth')
+  )
+}
+
+function isMissingContentColumnError(error) {
+  const serialized = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
+  return serialized.includes('content') && (
+    error?.code === 'PGRST204' ||
+    serialized.includes('could not find') ||
+    serialized.includes('column')
+  )
+}
+
+function getSendMessageErrorText(error) {
+  const message = error?.message || ''
+
+  if (message.includes('Bitte melde dich neu an')) {
+    return message
+  }
+  if (error?.code === '42501' || message.includes('row-level security')) {
+    return 'Nachricht konnte nicht gesendet werden. Bitte melde dich neu an und tritt der Session erneut bei.'
+  }
+  if (error?.code === '23503') {
+    return 'Nachricht konnte nicht gesendet werden. Dein Profil oder diese Session ist in der Datenbank nicht vollständig verknüpft.'
+  }
+
+  return 'Nachricht konnte nicht gesendet werden.'
+}
+
 export default function SessionDetail() {
   const { id } = useParams()
+  if (id === 'football' || id === 'basketball' || id === 'swimming' || id === 'figma' || id === 'detail') {
+    return <FigmaSessionDetail />
+  }
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -112,13 +168,50 @@ export default function SessionDetail() {
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
 
+  const getFallbackMessageUser = useCallback((userId) => ({
+    id: userId,
+    name: userId === user?.id ? (user?.user_metadata?.name || user?.email || 'Du') : 'Unbekannter Nutzer',
+    avatar_url: null,
+  }), [user])
+
+  const attachUsersToMessages = useCallback(async (messageRows = []) => {
+    if (!messageRows.length) return []
+
+    const userIds = [...new Set(messageRows.map((message) => message.user_id).filter(Boolean))]
+    if (!userIds.length) {
+      return messageRows.map((message) => ({
+        ...message,
+        user: getFallbackMessageUser(message.user_id),
+      }))
+    }
+
+    const { data: usersData, error } = await supabase
+      .from('users')
+      .select('id, name, avatar_url')
+      .in('id', userIds)
+
+    if (error) {
+      console.error('Nutzer für Nachrichten konnten nicht geladen werden:', error)
+      return messageRows.map((message) => ({
+        ...message,
+        user: getFallbackMessageUser(message.user_id),
+      }))
+    }
+
+    const usersById = new Map((usersData || []).map((messageUser) => [messageUser.id, messageUser]))
+    return messageRows.map((message) => ({
+      ...message,
+      user: usersById.get(message.user_id) || getFallbackMessageUser(message.user_id),
+    }))
+  }, [getFallbackMessageUser])
+
   const fetchSession = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('sessions')
         .select(`
           *,
-          creator:users!creator_id(id, name, city, avatar_url)
+          creator:users!creator_id(id, name, city, avatar_url, reliability_score)
         `)
         .eq('id', id)
         .single()
@@ -151,16 +244,16 @@ export default function SessionDetail() {
     try {
       const { data, error } = await supabase
         .from('messages')
-        .select('*, user:users(id, name, avatar_url)')
+        .select('id, session_id, user_id, text, content, created_at')
         .eq('session_id', id)
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      setMessages(data || [])
+      setMessages(await attachUsersToMessages(data || []))
     } catch (err) {
       console.error('Nachrichten konnten nicht geladen werden:', err)
     }
-  }, [id])
+  }, [id, attachUsersToMessages])
 
   const fetchJoinRequests = useCallback(async () => {
     setJoinRequest(null)
@@ -213,17 +306,11 @@ export default function SessionDetail() {
           filter: `session_id=eq.${id}`,
         },
         async (payload) => {
-          const { data } = await supabase
-            .from('messages')
-            .select('*, user:users(id, name, avatar_url)')
-            .eq('id', payload.new.id)
-            .single()
+          const [data] = await attachUsersToMessages([payload.new])
           if (data) {
             setMessages((prev) => {
-              // Optimistic-Nachricht entfernen und echte hinzufügen (kein Duplikat)
-              const withoutOptimistic = prev.filter((m) => !String(m.id).startsWith('optimistic-'))
-              if (withoutOptimistic.some((m) => m.id === data.id)) return withoutOptimistic
-              return [...withoutOptimistic, data]
+              if (prev.some((m) => m.id === data.id)) return prev
+              return [...prev, data]
             })
           }
         }
@@ -233,7 +320,7 @@ export default function SessionDetail() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, fetchParticipants])
+  }, [id, fetchParticipants, attachUsersToMessages])
 
   const isParticipant = participants.some((p) => p.user_id === user?.id)
   const confirmedCount = participants.filter((p) => !p.waitlist).length
@@ -327,31 +414,94 @@ export default function SessionDetail() {
 
     setSending(true)
     const text = DOMPurify.sanitize(newMessage.trim(), { ALLOWED_TAGS: [] })
-    setNewMessage('')
 
-    // Optimistic update – sofort anzeigen ohne auf Realtime zu warten
-    const optimistic = {
-      id: `optimistic-${Date.now()}`,
-      session_id: id,
-      user_id: user.id,
-      text,
-      created_at: new Date().toISOString(),
-      user: { id: user.id, name: user.user_metadata?.name || user.email, avatar_url: null },
+    const insertMessage = async (senderId) => {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          session_id: id,
+          user_id: senderId,
+          text,
+          content: text,
+        })
+        .select('id, session_id, user_id, text, content, created_at')
+        .single()
+
+      if (error) throw error
+      return data
     }
-    setMessages((prev) => [...prev, optimistic])
+
+    const ensureOwnMessageProfile = async (currentUser) => {
+      const name = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || currentUser.email || 'Nutzer'
+      const { error } = await supabase.from('users').upsert({
+        id: currentUser.id,
+        email: currentUser.email,
+        name,
+      }, { onConflict: 'id' })
+
+      if (error) throw error
+    }
 
     try {
-      const { error } = await supabase.from('messages').insert({
-        session_id: id,
-        user_id: user.id,
-        text,
+      let data
+      try {
+        data = await insertMessage(user.id)
+      } catch (insertError) {
+        if (isMissingContentColumnError(insertError)) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('messages')
+            .insert({
+              session_id: id,
+              user_id: user.id,
+              text,
+            })
+            .select('id, session_id, user_id, text, content, created_at')
+            .single()
+
+          if (fallbackError) throw fallbackError
+          data = fallbackData
+        } else if (isMissingMessageUserProfileError(insertError)) {
+          await ensureOwnMessageProfile(user)
+          data = await insertMessage(user.id)
+        } else if (isAuthMessageError(insertError)) {
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+          if (sessionError || !sessionData?.session?.user) throw insertError
+          data = await insertMessage(sessionData.session.user.id)
+        } else {
+          throw insertError
+        }
+      }
+
+      const [messageWithUser] = await attachUsersToMessages([data])
+
+      setMessages((prev) => {
+        if (!messageWithUser || prev.some((m) => m.id === messageWithUser.id)) return prev
+        return [...prev, messageWithUser]
       })
-      if (error) throw error
-      // Realtime ersetzt die optimistic-Nachricht – kein fetchMessages nötig
+      setNewMessage('')
+
+      // Fire-and-forget: email notification to other participants (non-blocking)
+      try {
+        const { data: { session: authSession } } = await supabase.auth.getSession()
+        if (authSession) {
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-message-email`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authSession.access_token}`,
+              },
+              body: JSON.stringify({
+                message_id: data.id,
+              }),
+            }
+          ).catch(() => {})
+        }
+      } catch { /* non-critical */ }
     } catch (err) {
       console.error('Nachricht konnte nicht gesendet werden:', err)
-      toast.error('Nachricht konnte nicht gesendet werden.')
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+      toast.error(getSendMessageErrorText(err))
       setNewMessage(text)
     } finally {
       setSending(false)
@@ -376,6 +526,7 @@ export default function SessionDetail() {
   }
 
   const handleReport = async () => {
+    if (!user) return
     if (!reportReason) { toast.error('Bitte wähle einen Grund aus.'); return }
     setReporting(true)
     try {
@@ -408,14 +559,14 @@ export default function SessionDetail() {
   const handleEditOpen = () => {
     setEditForm({
       title: session.title,
-      sport: session.sport,
+      sport: toSportLabel(session.sport),
       date: session.date,
       time: session.time?.slice(0, 5) || '',
       location: session.location,
       address: session.address || '',
       max_players: session.max_players,
       gender_filter: session.gender_filter,
-      skill_level: session.skill_level,
+      skill_level: toSkillLabel(session.skill_level),
       description: session.description || '',
       equipment: session.equipment,
     })
@@ -429,14 +580,14 @@ export default function SessionDetail() {
       const { error } = await supabase.rpc('update_session', {
         p_session_id: id,
         p_title: editForm.title.trim(),
-        p_sport: editForm.sport,
+        p_sport: toSportDbValue(editForm.sport),
         p_date: editForm.date,
         p_time: editForm.time,
         p_location: editForm.location.trim(),
         p_address: editForm.address.trim() || null,
         p_max_players: parseInt(editForm.max_players),
         p_gender_filter: editForm.gender_filter,
-        p_skill_level: editForm.skill_level,
+        p_skill_level: toSkillDbValue(editForm.skill_level),
         p_description: editForm.description.trim() || null,
         p_equipment: editForm.equipment,
       })
@@ -471,8 +622,10 @@ export default function SessionDetail() {
 
   const inputClass = 'w-full bg-dark/80 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors'
 
-  const emoji = SPORT_EMOJIS[session.sport] || '🏃'
-  const skillColorClass = SKILL_COLORS[session.skill_level] || 'bg-gray-500'
+  const sportLabel = toSportLabel(session.sport)
+  const skillLabel = toSkillLabel(session.skill_level)
+  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
+  const skillColorClass = SKILL_COLORS[skillLabel] || 'bg-gray-500'
 
   let formattedDate = ''
   try {
@@ -569,7 +722,7 @@ export default function SessionDetail() {
                 <input type="text" value={editForm.address} onChange={(e) => setEditForm(p => ({ ...p, address: e.target.value }))} className={inputClass} />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-white text-sm font-medium">Max. Spieler <span className="text-primary">*</span></label>
                   <input type="number" min={2} max={100} value={editForm.max_players} onChange={(e) => setEditForm(p => ({ ...p, max_players: e.target.value }))} className={inputClass} required />
@@ -657,10 +810,10 @@ export default function SessionDetail() {
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span className="inline-flex items-center gap-2 bg-primary/20 text-primary font-semibold px-3 py-1.5 rounded-full text-sm">
                 <span className="text-xl">{emoji}</span>
-                {session.sport}
+                {sportLabel}
               </span>
               <span className={`${skillColorClass} text-white text-xs font-bold px-2.5 py-1 rounded-lg`}>
-                {session.skill_level}
+                {skillLabel}
               </span>
               <span className="bg-white/10 text-muted text-xs font-medium px-2.5 py-1 rounded-lg">
                 {session.gender_filter}
