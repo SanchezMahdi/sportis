@@ -92,14 +92,18 @@ export default function FigmaNavbar() {
               <div className="flex items-center gap-3">
                 <Link 
                   to="/profil" 
-                  className="w-10 h-10 rounded-full overflow-hidden border-2 border-transparent hover:border-[#5B3FE9] transition-all shadow-xs"
+                  className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200/80 hover:border-[#5B3FE9] transition-all shadow-xs bg-gray-100 flex items-center justify-center"
                   title="Mein Profil"
                 >
-                  <img 
-                    src={user.user_metadata?.avatar_url || '/figma/profile_avatar_figma.png'} 
-                    alt="Profil" 
-                    className="w-full h-full object-cover" 
-                  />
+                  {user.user_metadata?.avatar_url ? (
+                    <img 
+                      src={user.user_metadata.avatar_url} 
+                      alt="Profil" 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <User className="w-5 h-5 text-gray-500" />
+                  )}
                 </Link>
                 <button
                   onClick={handleSignOut}

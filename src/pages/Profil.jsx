@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Check, ChevronDown, Camera } from 'lucide-react'
+import { Check, ChevronDown, Camera, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -19,7 +19,7 @@ export default function Profil() {
     password: 'sbdfbnd65sfdvb s',
   })
 
-  const [avatarUrl, setAvatarUrl] = useState('/figma/profile_avatar_figma.png')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
@@ -141,14 +141,20 @@ export default function Profil() {
             {/* Circular Avatar */}
             <div 
               onClick={() => avatarInputRef.current?.click()}
-              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden cursor-pointer group shadow-sm ring-2 ring-gray-100 hover:ring-[#2563EB] transition-all"
-              title="Profilbild ändern"
+              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden cursor-pointer group shadow-xs ring-2 ring-gray-200/80 bg-gray-100 hover:ring-[#2563EB] transition-all flex items-center justify-center"
+              title={avatarUrl ? "Profilbild ändern" : "Profilbild hinzufügen"}
             >
-              <img 
-                src={avatarUrl} 
-                alt="Profile Avatar" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-              />
+              {avatarUrl ? (
+                <img 
+                  src={avatarUrl} 
+                  alt="Profile Avatar" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-gray-200 transition-colors">
+                  <User className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                </div>
+              )}
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 {uploadingAvatar ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
