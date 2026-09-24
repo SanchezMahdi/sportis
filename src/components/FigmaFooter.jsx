@@ -16,13 +16,8 @@ export default function FigmaFooter() {
           
           {/* Col 1: Logo, Slogan & PageSpeed */}
           <div className="md:col-span-5 flex flex-col items-start gap-4">
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <img 
-                src="/icons/sportis-icon.png" 
-                alt="Sportis" 
-                className="w-7 h-7 object-contain transition-transform group-hover:scale-105" 
-              />
-              <span className="font-['Outfit',sans-serif] text-xl font-bold tracking-tight text-gray-950">
+            <Link to="/" className="inline-block group">
+              <span className="font-['Inter',sans-serif] text-2xl font-black tracking-tight text-gray-950 group-hover:text-[#5B3FE9] transition-colors select-none">
                 Sportis
               </span>
             </Link>
