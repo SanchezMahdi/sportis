@@ -61,7 +61,7 @@ const roadmapPhotos = [
   },
   {
     id: 4,
-    src: '/figma/v2/assets/photo_4_pitch.png',
+    src: '/figma/v2/assets/roadmap_picture4.jpg',
     alt: 'Moderner Kunstrasenplatz & Flutlicht',
   },
   {
