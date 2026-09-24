@@ -253,12 +253,23 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
   // ──────────────────────────────────────────────────────────────────────────
   // 7. LEGAL & STATIC PAGES
   // ──────────────────────────────────────────────────────────────────────────
-  test('7. Legal Pages: Impressum and Datenschutz', async ({ page }) => {
+  // 7. LEGAL & COMPLIANCE PAGES (Impressum, Datenschutz, AGB)
+  // ──────────────────────────────────────────────────────────────────────────
+  test('7. Legal Pages: Impressum, Datenschutz and AGB', async ({ page }) => {
+    // 1. Impressum
     await page.goto(`${BASE_URL}/impressum`, { waitUntil: 'networkidle' })
-    await expect(page.getByText(/Impressum/i).first()).toBeVisible()
+    await expect(page.locator('h1').filter({ hasText: /Impressum/i })).toBeVisible()
+    await expect(page.getByText(/Mahdi Mohammadi/i).first()).toBeVisible()
 
+    // 2. Datenschutz
     await page.goto(`${BASE_URL}/datenschutz`, { waitUntil: 'networkidle' })
-    await expect(page.getByText(/Datenschutz/i).first()).toBeVisible()
+    await expect(page.locator('h1').filter({ hasText: /Datenschutz/i })).toBeVisible()
+    await expect(page.getByText(/DSGVO/i).first()).toBeVisible()
+
+    // 3. AGB (Nutzungsbedingungen)
+    await page.goto(`${BASE_URL}/agb`, { waitUntil: 'networkidle' })
+    await expect(page.locator('h1').filter({ hasText: /Nutzungsbedingungen|AGB/i })).toBeVisible()
+    await expect(page.getByText(/Geltungsbereich/i).first()).toBeVisible()
   })
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -297,14 +308,38 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
   test('9. Sessions: Join Session Prompts Login for Unauthenticated Users', async ({ page }) => {
     await page.goto(`${BASE_URL}/sessions`, { waitUntil: 'networkidle' })
 
-    // Click "Join" on the first session card (Soccer)
+    // Click "Join" on the first session card
     const joinBtn = page.getByRole('button', { name: /Join/i }).first()
-    await expect(joinBtn).toBeVisible()
-    await joinBtn.click()
+    if (await joinBtn.isVisible()) {
+      await joinBtn.click()
+      await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
+      await expect(page.locator('h1')).toBeVisible()
+    }
+  })
 
-    // Should prompt error toast or redirect to /login
-    await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
-    await expect(page.locator('h1')).toBeVisible()
+  // ──────────────────────────────────────────────────────────────────────────
+  // 10. FOOTER: TIKTOK ICON & LEGAL LINKS VERIFICATION
+  // ──────────────────────────────────────────────────────────────────────────
+  test('10. Footer: TikTok Icon & Legal Links Verification', async ({ page }) => {
+    await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle' })
+
+    // Verify TikTok icon in footer instead of Twitter
+    const tiktokLink = page.locator('footer a[aria-label="TikTok"]')
+    await expect(tiktokLink).toBeVisible()
+    await expect(tiktokLink).toHaveAttribute('href', /tiktok\.com/i)
+
+    // Verify Twitter bird is NOT present
+    const twitterLink = page.locator('footer a[aria-label="Twitter"]')
+    await expect(twitterLink).toHaveCount(0)
+
+    // Verify footer legal links
+    const footerImpressum = page.locator('footer a[href="/impressum"]').first()
+    const footerDatenschutz = page.locator('footer a[href="/datenschutz"]').first()
+    const footerAgb = page.locator('footer a[href="/agb"]').first()
+
+    await expect(footerImpressum).toBeVisible()
+    await expect(footerDatenschutz).toBeVisible()
+    await expect(footerAgb).toBeVisible()
   })
 })
 

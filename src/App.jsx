@@ -18,6 +18,7 @@ const Dashboard      = lazy(() => import('./pages/Dashboard'))
 const Login          = lazy(() => import('./pages/Login'))
 const Impressum      = lazy(() => import('./pages/Impressum'))
 const Datenschutz    = lazy(() => import('./pages/Datenschutz'))
+const AGB            = lazy(() => import('./pages/AGB'))
 
 function PageLoader() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/login"           element={<Wrap><Login /></Wrap>} />
           <Route path="/impressum"       element={<Wrap><Impressum /></Wrap>} />
           <Route path="/datenschutz"     element={<Wrap><Datenschutz /></Wrap>} />
+          <Route path="/agb"             element={<Wrap><AGB /></Wrap>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

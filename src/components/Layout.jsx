@@ -6,16 +6,9 @@ import FigmaFooter from './FigmaFooter'
 
 export default function Layout({ children }) {
   const location = useLocation()
-  const isFigmaPage = 
-    location.pathname === '/' || 
-    location.pathname === '/sessions' || 
-    location.pathname === '/profil' || 
-    location.pathname === '/login' || 
-    location.pathname === '/session/erstellen' || 
-    location.pathname === '/events' || 
-    location.pathname.startsWith('/session/')
+  const isLegacyDarkPage = location.pathname === '/dashboard'
 
-  if (isFigmaPage) {
+  if (!isLegacyDarkPage) {
     return (
       <div className="min-h-screen flex flex-col bg-white text-gray-900 selection:bg-[#5B3FE9]/20 selection:text-[#5B3FE9]">
         <FigmaNavbar />
