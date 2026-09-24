@@ -41,8 +41,13 @@ export default function FigmaNavbar() {
         <div className="flex items-center justify-between h-20">
           
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <span className="font-['Outfit',sans-serif] text-2xl font-black tracking-tight text-gray-950 hover:text-[#5B3FE9] transition-colors">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <img 
+              src="/icons/sportis-icon.png" 
+              alt="Sportis" 
+              className="h-8 w-8 object-contain transition-transform group-hover:scale-105" 
+            />
+            <span className="font-['Outfit',sans-serif] text-2xl font-black tracking-tight text-gray-950 group-hover:text-[#5B3FE9] transition-colors">
               Sportis
             </span>
           </Link>

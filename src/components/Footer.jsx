@@ -8,12 +8,14 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
           {/* Logo & tagline */}
           <div className="flex flex-col items-center md:items-start gap-3">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="bg-primary rounded-lg p-1.5 group-hover:bg-green-400 transition-colors">
-                <Zap className="w-4 h-4 text-dark" fill="currentColor" />
-              </div>
-              <span className="text-white font-bold text-lg tracking-tight">
-                sport<span className="text-primary">is</span>
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <img 
+                src="/icons/sportis-icon.png" 
+                alt="Sportis" 
+                className="w-6 h-6 object-contain transition-transform group-hover:scale-105" 
+              />
+              <span className="font-['Outfit',sans-serif] text-lg font-bold tracking-tight text-white group-hover:text-primary transition-colors">
+                Sportis
               </span>
             </Link>
             <p className="text-muted text-sm text-center md:text-left max-w-xs">

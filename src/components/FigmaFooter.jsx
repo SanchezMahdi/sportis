@@ -16,12 +16,15 @@ export default function FigmaFooter() {
           
           {/* Col 1: Logo, Slogan & PageSpeed */}
           <div className="md:col-span-5 flex flex-col items-start gap-4">
-            <Link to="/" className="inline-block group">
+            <Link to="/" className="flex items-center gap-2.5 group">
               <img 
-                src="/figma/nav_logo.png" 
-                alt="Sportis Logo" 
-                className="w-8 h-8 object-contain" 
+                src="/icons/sportis-icon.png" 
+                alt="Sportis" 
+                className="w-7 h-7 object-contain transition-transform group-hover:scale-105" 
               />
+              <span className="font-['Outfit',sans-serif] text-xl font-bold tracking-tight text-gray-950">
+                Sportis
+              </span>
             </Link>
             
             <div className="space-y-1">
@@ -86,11 +89,8 @@ export default function FigmaFooter() {
           <div className="md:col-span-4 flex flex-col justify-between">
             <div>
               <h3 className="text-gray-900 font-bold text-base mb-4">Contact us</h3>
-              <p className="text-sm leading-relaxed text-gray-500 mb-4 max-w-sm">
+              <p className="text-sm leading-relaxed text-gray-500 mb-6 max-w-sm">
                 We're here to help! Reach out, join a session, or become part of the Sportis community.
-              </p>
-              <p className="text-sm font-semibold text-gray-800 mb-6">
-                +923183561921
               </p>
             </div>
 

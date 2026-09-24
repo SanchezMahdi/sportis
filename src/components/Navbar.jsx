@@ -226,12 +226,14 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group" onClick={closeMenu}>
-            <div className="bg-primary rounded-lg p-1.5 group-hover:bg-green-400 transition-colors">
-              <Zap className="w-5 h-5 text-dark" fill="currentColor" />
-            </div>
-            <span className="text-white font-bold text-xl tracking-tight">
-              sport<span className="text-primary">is</span>
+          <Link to="/" className="flex items-center gap-2.5 group" onClick={closeMenu}>
+            <img 
+              src="/icons/sportis-icon.png" 
+              alt="Sportis" 
+              className="w-7 h-7 object-contain transition-transform group-hover:scale-105" 
+            />
+            <span className="font-['Outfit',sans-serif] text-xl font-bold tracking-tight text-white group-hover:text-primary transition-colors">
+              Sportis
             </span>
           </Link>
 
