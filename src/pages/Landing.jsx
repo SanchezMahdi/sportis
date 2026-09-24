@@ -46,18 +46,18 @@ const roadmapSteps = [
 const roadmapPhotos = [
   {
     id: 1,
-    src: '/figma/v2/assets/photo_1_crowd.png',
-    alt: 'Sportis Community Outdoor Meetup',
+    src: '/figma/v2/assets/roadmap_picture1.jpg',
+    alt: 'Sportis Football 1v1 Match',
   },
   {
     id: 2,
-    src: '/figma/v2/assets/photo_2_sportis_jerseys.png',
-    alt: 'Sportis Team Trikots #6, #22, #9',
+    src: '/figma/v2/assets/roadmap_picture2.jpg',
+    alt: 'Sportis Volleyball Spike Match',
   },
   {
     id: 3,
-    src: '/figma/v2/assets/photo_3_spikeball.png',
-    alt: 'Spikeball Match auf dem Campus',
+    src: '/figma/v2/assets/roadmap_picture3.jpg',
+    alt: 'Sportis Campus Football Game',
   },
   {
     id: 4,
@@ -66,8 +66,8 @@ const roadmapPhotos = [
   },
   {
     id: 5,
-    src: '/figma/v2/assets/photo_5_tabletennis.png',
-    alt: 'Outdoor Tischtennis am Campus',
+    src: '/figma/v2/assets/roadmap_picture5.jpg',
+    alt: 'Sportis Final Football Tournament Sunset',
   },
 ]
 

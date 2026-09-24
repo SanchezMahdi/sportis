@@ -43,7 +43,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
 
     // Verify Trophy & Photos
     await expect(page.locator('img[src="/figma/trophy.png"]')).toBeVisible()
-    const roadmapPhotos = page.locator('#campus-league img[src*="photo_"]')
+    const roadmapPhotos = page.locator('#campus-league img[src*="roadmap_picture"], #campus-league img[src*="photo_"]')
     expect(await roadmapPhotos.count()).toBeGreaterThanOrEqual(5)
 
     // 3. About Us Section: Übertitel, Video Card & Video Modal Flow
