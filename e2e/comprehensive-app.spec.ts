@@ -171,8 +171,8 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     const formHeading = page.locator('h1')
     await expect(formHeading).toBeVisible()
 
-    // Mode Toggle button: e.g. "Login now" or "Sign up now"
-    const toggleModeBtn = page.getByRole('button', { name: /login now|sign up now/i }).first()
+    // Mode Toggle button: e.g. "Sign up" or "Sign in"
+    const toggleModeBtn = page.getByRole('button', { name: /sign up|sign in|login/i }).last()
     if (await toggleModeBtn.isVisible()) {
       const initialText = await formHeading.innerText()
       await toggleModeBtn.click()
@@ -183,7 +183,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
 
     // Input fields test: Email & Password
     const emailInput = page.locator('input[type="email"]')
-    const passwordInput = page.locator('input[type="password"], input[placeholder="Password"]')
+    const passwordInput = page.locator('input[type="password"]').first()
     await expect(emailInput).toBeVisible()
     await expect(passwordInput).toBeVisible()
 
@@ -192,10 +192,9 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
 
     expect(await emailInput.inputValue()).toBe('test-user@campus.de')
 
-    // Social Login Buttons: Google, Apple, Microsoft
+    // Social Login Buttons: Google & Facebook (Figma)
     await expect(page.getByRole('button', { name: /Google/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Apple/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Microsoft/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Facebook/i })).toBeVisible()
 
     expect(pageErrors).toEqual([])
   })

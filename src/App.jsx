@@ -68,6 +68,7 @@ export default function App() {
           <Route path="/session/:id"     element={<Wrap><SessionDetail /></Wrap>} />
           <Route path="/plaetze"         element={<Navigate to="/#pictures" replace />} />
           <Route path="/profil"          element={<Wrap><Profil /></Wrap>} />
+          <Route path="/profile"         element={<Navigate to="/profil" replace />} />
           <Route path="/dashboard"       element={<Wrap><Dashboard /></Wrap>} />
           <Route path="/login"           element={<Wrap><Login /></Wrap>} />
           <Route path="/impressum"       element={<Wrap><Impressum /></Wrap>} />
