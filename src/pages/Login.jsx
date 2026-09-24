@@ -132,7 +132,7 @@ export default function Login() {
                 : 'Join Sportis and play with your community.'}
             </p>
             <p className="text-sm text-gray-600">
-              {isLoginMode ? 'Sign in to have fun' : 'Unlock all sports sessions'}
+              {isLoginMode ? 'Log in to have fun' : 'Unlock all sports sessions'}
             </p>
           </div>
 
@@ -221,13 +221,13 @@ export default function Login() {
               </div>
             )}
 
-            {/* Dark Submit Button: "Sign in" / "Sign up" (Figma) */}
+            {/* Dark Submit Button: "Log in" / "Sign up" */}
             <button
               type="submit"
               disabled={loading}
               className="w-full h-12 mt-2 bg-[#161F2E] hover:bg-black text-white font-medium text-sm rounded-lg transition-colors shadow-xs disabled:opacity-50"
             >
-              {loading ? 'Please wait...' : isLoginMode ? 'Sign in' : 'Sign up'}
+              {loading ? 'Please wait...' : isLoginMode ? 'Log in' : 'Sign up'}
             </button>
           </form>
 
@@ -237,7 +237,7 @@ export default function Login() {
             <span className="bg-white px-3 text-xs text-gray-400 absolute">Or</span>
           </div>
 
-          {/* Social Logins: Google & Facebook (Figma stacked) */}
+          {/* Social Logins: Google & Facebook */}
           <div className="flex flex-col gap-2.5">
             {/* Google */}
             <button
@@ -251,7 +251,7 @@ export default function Login() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
-              <span>Sign in with Google</span>
+              <span>Log in with Google</span>
             </button>
 
             {/* Facebook */}
@@ -263,11 +263,11 @@ export default function Login() {
               <svg className="w-5 h-5 fill-[#1877F2]" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
               </svg>
-              <span>Sign in with Facebook</span>
+              <span>Log in with Facebook</span>
             </button>
           </div>
 
-          {/* Switch Mode Prompt: "Don't you have an account? Sign up" */}
+          {/* Switch Mode Prompt */}
           <p className="text-center text-xs sm:text-sm text-gray-600 mt-6">
             {isLoginMode ? "Don't you have an account? " : 'Already have an account? '}
             <button
@@ -275,7 +275,7 @@ export default function Login() {
               onClick={() => setIsLoginMode(!isLoginMode)}
               className="text-[#2F80ED] font-semibold hover:underline"
             >
-              {isLoginMode ? 'Sign up' : 'Sign in'}
+              {isLoginMode ? 'Sign up' : 'Log in'}
             </button>
           </p>
 
