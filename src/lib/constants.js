@@ -12,10 +12,27 @@ export const GENDER_FILTERS = ['Gemischt', 'Nur Frauen', 'Nur Männer']
 
 export const SPORT_EMOJIS = {
   Fußball: '⚽',
+  Fussball: '⚽',
+  football: '⚽',
+  soccer: '⚽',
   Volleyball: '🏐',
+  Vollyball: '🏐',
+  volleyball: '🏐',
   Basketball: '🏀',
+  basketball: '🏀',
   Tennis: '🎾',
+  tennis: '🎾',
   Tischtennis: '🏓',
+  table_tennis: '🏓',
+  Chillen: '😎',
+  chillen: '😎',
+  Laufen: '🏃',
+  Joggen: '🏃',
+  Padel: '🎾',
+  Gym: '💪',
+  Fitness: '🏋️',
+  Yoga: '🧘',
+  Bouldern: '🧗',
 }
 
 export const SPORT_IMAGES = {

@@ -20,7 +20,8 @@ export default function SessionErstellen() {
   const [time, setTime] = useState('')
   const [ort, setOrt] = useState('Hamburg')
   const [address, setAddress] = useState('')
-  const [sport, setSport] = useState('Fussball') // 'Fussball' | 'Basketball' | 'Vollyball'
+  const [sport, setSport] = useState('Fussball') // Beliebige Freieingabe oder Auswahl
+  const [sportError, setSportError] = useState(false)
   const [isSportDropdownOpen, setIsSportDropdownOpen] = useState(true)
 
   const [submitting, setSubmitting] = useState(false)
@@ -76,6 +77,14 @@ export default function SessionErstellen() {
       setDateError(null)
     }
 
+    if (!sport.trim()) {
+      setSportError(true)
+      toast.error('Bitte gib eine Sportart oder Aktivität ein.')
+      hasError = true
+    } else {
+      setSportError(false)
+    }
+
     if (hasError) return
 
     setSubmitting(true)
@@ -93,7 +102,7 @@ export default function SessionErstellen() {
           creator_id: user.id,
           host_id: user.id,
           title: title.trim(),
-          sport: sport.toLowerCase(),
+          sport: sport.trim(),
           date: date,
           time: time || '18:00',
           scheduled_at: `${date}T${time || '18:00'}:00Z`,
@@ -359,60 +368,89 @@ export default function SessionErstellen() {
                 </div>
               </div>
 
-              {/* Chillen / Sportart Select Dropdown */}
+              {/* Sportart / Beliebige Eingabe (Figma) */}
               <div className="flex flex-col gap-1.5">
-                <div className="border border-[#7C3AED] rounded-xl overflow-hidden bg-white shadow-xs">
-                  {/* Dropdown Header */}
-                  <button
-                    type="button"
-                    onClick={() => setIsSportDropdownOpen(!isSportDropdownOpen)}
-                    className="w-full px-4 py-3 flex items-center justify-between text-sm font-semibold text-gray-800 bg-white"
-                  >
-                    <span>Chillen</span>
-                    <ChevronDown className={`w-4 h-4 text-[#7C3AED] transition-transform ${isSportDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
+                <label className="text-xs font-semibold text-gray-800">
+                  Sportart / Aktivität (Freie Eingabe)
+                </label>
+                <div
+                  className={`border rounded-xl overflow-hidden bg-white shadow-xs transition-colors ${
+                    sportError
+                      ? 'border-red-500 ring-1 ring-red-500'
+                      : 'border-[#7C3AED] focus-within:ring-1 focus-within:ring-[#7C3AED]'
+                  }`}
+                >
+                  {/* Editable Input Box with Toggle Chevron */}
+                  <div className="relative flex items-center bg-white">
+                    <input
+                      type="text"
+                      value={sport}
+                      onChange={(e) => {
+                        setSport(e.target.value)
+                        setSportError(false)
+                      }}
+                      onFocus={() => setIsSportDropdownOpen(true)}
+                      placeholder="Eingabe (z.B. Fussball, Chillen, Basketball...)"
+                      className="w-full h-12 bg-white px-4 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsSportDropdownOpen(!isSportDropdownOpen)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7C3AED] hover:text-[#5B3FE9] p-1 focus:outline-none"
+                      title={isSportDropdownOpen ? 'Vorschläge einklappen' : 'Vorschläge anzeigen'}
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isSportDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
 
-                  {/* Dropdown Options */}
+                  {/* Dropdown Suggestions List (Figma) */}
                   {isSportDropdownOpen && (
-                    <div className="border-t border-gray-100 flex flex-col">
-                      <button
-                        type="button"
-                        onClick={() => setSport('Fussball')}
-                        className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${
-                          sport === 'Fussball'
-                            ? 'bg-[#F6A94D] text-white font-semibold'
-                            : 'bg-white text-gray-700 hover:bg-gray-50 border-b border-gray-100'
-                        }`}
-                      >
-                        Fussball
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSport('Basketball')}
-                        className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors border-b border-gray-100 ${
-                          sport === 'Basketball'
-                            ? 'bg-[#F6A94D] text-white font-semibold'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Basketball
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSport('Vollyball')}
-                        className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${
-                          sport === 'Vollyball'
-                            ? 'bg-[#F6A94D] text-white font-semibold'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        Vollyball
-                      </button>
+                    <div className="border-t border-gray-100 flex flex-col bg-white">
+                      {[
+                        { label: 'Fussball', icon: '⚽' },
+                        { label: 'Basketball', icon: '🏀' },
+                        { label: 'Vollyball', icon: '🏐' },
+                        { label: 'Chillen', icon: '😎' },
+                        { label: 'Tennis', icon: '🎾' },
+                        { label: 'Tischtennis', icon: '🏓' },
+                      ].map((item) => {
+                        const isSelected =
+                          sport.toLowerCase().trim() === item.label.toLowerCase().trim()
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => {
+                              setSport(item.label)
+                              setSportError(false)
+                            }}
+                            className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors flex items-center justify-between border-b last:border-b-0 border-gray-100 ${
+                              isSelected
+                                ? 'bg-[#F6A94D] text-white font-semibold'
+                                : 'bg-white text-gray-700 hover:bg-orange-50/40'
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            <span className="text-base">{item.icon}</span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
+                {sportError ? (
+                  <span className="text-[11px] text-red-500 font-medium">
+                    Bitte gib eine Sportart oder Aktivität ein
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-gray-400">
+                    Beliebige Eingabe tippen oder aus der Liste wählen
+                  </span>
+                )}
               </div>
 
             </div>
