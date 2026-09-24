@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, AlertCircle, Check } from 'lucide-react'
+import { ChevronDown, AlertCircle, Check, UploadCloud, Image as ImageIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { compressImage, uploadImageToStorage, embedSessionImage } from '../lib/imageUtils'
 
 export default function SessionErstellen() {
   const { user } = useAuth()
@@ -23,6 +24,11 @@ export default function SessionErstellen() {
   const [sport, setSport] = useState('Fussball') // Beliebige Freieingabe oder Auswahl
   const [sportError, setSportError] = useState(false)
   const [isSportDropdownOpen, setIsSportDropdownOpen] = useState(true)
+
+  // Session Image upload state
+  const [sessionImage, setSessionImage] = useState(null)
+  const [sessionImagePreview, setSessionImagePreview] = useState(null)
+  const sessionImageInputRef = useRef(null)
 
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,6 +52,38 @@ export default function SessionErstellen() {
     }
     const err = validateDate(val)
     setDateError(err)
+  }
+
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Bitte lade eine Bilddatei hoch (PNG, JPG, WebP).')
+      return
+    }
+
+    try {
+      const { dataUrl, blob } = await compressImage(file, {
+        maxWidth: 1000,
+        maxHeight: 750,
+        quality: 0.82,
+        mimeType: 'image/jpeg',
+      })
+      setSessionImage({ file, blob, dataUrl })
+      setSessionImagePreview(dataUrl)
+      toast.success('Bild ausgewählt! 📸')
+    } catch (err) {
+      console.error(err)
+      toast.error('Bild konnte nicht verarbeitet werden.')
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setSessionImage(null)
+    setSessionImagePreview(null)
+    if (sessionImageInputRef.current) {
+      sessionImageInputRef.current.value = ''
+    }
   }
 
   // Pre-fill date to today or valid date
@@ -96,6 +134,32 @@ export default function SessionErstellen() {
         return
       }
 
+      // Upload or embed session image
+      let uploadedImageUrl = null
+      if (sessionImage) {
+        if (sessionImage.blob && user) {
+          const fileName = `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.jpg`
+          const { publicUrl, error: uploadErr } = await uploadImageToStorage(
+            supabase,
+            'avatars',
+            fileName,
+            sessionImage.blob,
+            'image/jpeg'
+          )
+          if (!uploadErr && publicUrl) {
+            uploadedImageUrl = publicUrl
+          }
+        }
+        if (!uploadedImageUrl) {
+          uploadedImageUrl = sessionImage.dataUrl
+        }
+      }
+
+      const rawDescription = `Universität: ${university || 'Sportis Community'}`
+      const finalDescription = uploadedImageUrl
+        ? embedSessionImage(rawDescription, uploadedImageUrl)
+        : rawDescription
+
       const { data, error } = await supabase
         .from('sessions')
         .insert({
@@ -113,7 +177,7 @@ export default function SessionErstellen() {
           skill_level: level === 'Anfänger' ? 'beginner' : 'intermediate',
           gender_filter: 'Gemischt',
           equipment: equipmentRequired,
-          description: `Universität: ${university || 'Sportis Community'}`,
+          description: finalDescription,
         })
         .select()
         .single()
@@ -319,6 +383,62 @@ export default function SessionErstellen() {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 className="w-full h-12 bg-white border border-[#7C3AED] rounded-xl px-4 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#7C3AED] transition-colors"
+              />
+            </div>
+
+            {/* Eigenes Bild / Foto (Upload) */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-gray-800 flex items-center justify-between">
+                <span>Eigenes Bild / Foto (optional)</span>
+                {sessionImagePreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-[11px] text-red-500 hover:text-red-700 font-medium"
+                  >
+                    Entfernen
+                  </button>
+                )}
+              </label>
+
+              {sessionImagePreview ? (
+                <div className="relative w-full h-28 rounded-xl overflow-hidden border border-[#7C3AED] group bg-gray-50">
+                  <img
+                    src={sessionImagePreview}
+                    alt="Session Vorschau"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sessionImageInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-white text-xs font-semibold rounded-lg shadow-sm text-gray-800 hover:bg-gray-100 transition-colors"
+                    >
+                      Anderes Bild wählen
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => sessionImageInputRef.current?.click()}
+                  className="w-full h-24 border-2 border-dashed border-gray-300 hover:border-[#7C3AED] rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer bg-gray-50/50 hover:bg-purple-50/30 transition-all p-2 text-center group"
+                >
+                  <UploadCloud className="w-5 h-5 text-gray-400 group-hover:text-[#7C3AED] transition-colors" />
+                  <span className="text-xs font-medium text-gray-700 group-hover:text-[#7C3AED] transition-colors">
+                    Eigenes Foto hochladen
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    PNG, JPG oder WebP
+                  </span>
+                </div>
+              )}
+
+              <input
+                ref={sessionImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
               />
             </div>
 

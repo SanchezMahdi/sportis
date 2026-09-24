@@ -23,6 +23,7 @@ import { de } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { extractSessionImage } from '../lib/imageUtils'
 import {
   SPORT_EMOJIS,
   SKILL_COLORS,
@@ -246,6 +247,7 @@ export default function SessionDetail() {
       }
 
       const effectiveLocation = data.location || data.location_name || 'Hamburg'
+      const { imageUrl, cleanDescription } = extractSessionImage(data.description)
 
       setSession({
         ...data,
@@ -254,6 +256,8 @@ export default function SessionDetail() {
         date: effectiveDate,
         time: effectiveTime,
         location: effectiveLocation,
+        imageUrl,
+        cleanDescription,
       })
     } catch (err) {
       console.error('Session konnte nicht geladen werden:', err)
@@ -875,7 +879,18 @@ export default function SessionDetail() {
         {/* Main content */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           {/* Session header card */}
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8 overflow-hidden">
+            {/* Uploaded session banner if available */}
+            {session.imageUrl && (
+              <div className="w-full h-52 sm:h-72 rounded-2xl overflow-hidden mb-6 bg-gray-50 border border-gray-100 shadow-xs">
+                <img
+                  src={session.imageUrl}
+                  alt={session.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
             {/* Sport + badges */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span className="inline-flex items-center gap-2 bg-blue-50 text-[#2F80ED] border border-blue-200/80 font-bold px-3.5 py-1.5 rounded-full text-sm">
@@ -946,11 +961,11 @@ export default function SessionDetail() {
             </div>
 
             {/* Description */}
-            {session.description && (
+            {(session.cleanDescription || session.description) && (
               <div className="mt-6 pt-6 border-t border-gray-100">
                 <h3 className="text-gray-950 font-bold mb-2">Beschreibung</h3>
                 <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
-                  {session.description}
+                  {session.cleanDescription || session.description}
                 </p>
               </div>
             )}

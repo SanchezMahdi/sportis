@@ -112,10 +112,13 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     const createBtn = page.getByRole('link', { name: /Session erstellen/i })
     await expect(createBtn).toBeVisible()
 
-    // Category Cards (Soccer, Basketball, Skating, Bar)
-    await expect(page.getByText('Soccer').first()).toBeVisible()
-    await expect(page.getByText('Basketball').first()).toBeVisible()
-    await expect(page.getByText('Skating').first()).toBeVisible()
+    // Real DB session cards or empty state
+    const hasCards = (await page.locator('button:has-text("Join"), button:has-text("Beigetreten")').count()) > 0
+    if (hasCards) {
+      await expect(page.locator('button:has-text("Join"), button:has-text("Beigetreten")').first()).toBeVisible()
+    } else {
+      await expect(page.getByText(/Keine Sessions gefunden/i)).toBeVisible()
+    }
 
     // Search bar inputs
     const locationInput = page.getByPlaceholder(/location/i)

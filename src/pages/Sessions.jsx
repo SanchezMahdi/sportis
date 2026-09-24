@@ -4,6 +4,7 @@ import { MapPin, Users, Calendar, Clock, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { extractSessionImage } from '../lib/imageUtils'
 
 const getSportIllustration = (sport) => {
   const s = (sport || '').toLowerCase()
@@ -215,40 +216,27 @@ export default function Sessions() {
     const isJoined = s.session_participants?.some((p) => p.user_id === user?.id)
     const normalized = normalizeSport(s.sport)
     const isBar = normalized === 'Bar'
+    const { imageUrl } = extractSessionImage(s.description)
 
     return {
       id: s.id,
       realSessionId: s.id,
-      sport: normalized,
+      sport: s.sport,
       sportDisplay: normalized,
       title: s.title,
       timeDisplay: formatTime(s.time, s.scheduled_at),
       locationDisplay: s.location || s.location_name || s.address || 'Hamburg',
       spotsDisplay: `${s.session_participants?.length || 1}/${s.max_players || 10}`,
       dateDisplay: formatDate(s.date, s.scheduled_at),
-      illustration: getSportIllustration(s.sport),
-      isBar,
+      imageUrl: imageUrl || null,
+      illustration: imageUrl || getSportIllustration(s.sport),
+      isBar: isBar && !imageUrl,
       isJoined,
     }
   })
 
-  // Combine DB sessions + Figma showcase cards in canonical order: Soccer, Basketball, Skating, Bar
-  const order = ['Soccer', 'Basketball', 'Skating', 'Bar']
-  const combined = [
-    ...mappedDbSessions,
-    ...FIGMA_CARDS.filter(
-      (fc) => !mappedDbSessions.some((db) => db.sport.toLowerCase() === fc.sport.toLowerCase())
-    ),
-  ]
-
-  const allCards = combined.sort((a, b) => {
-    const idxA = order.indexOf(a.sportDisplay)
-    const idxB = order.indexOf(b.sportDisplay)
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB
-    if (idxA !== -1) return -1
-    if (idxB !== -1) return 1
-    return 0
-  })
+  // ONLY real sessions created by real people in the database
+  const allCards = mappedDbSessions
 
   // Filter based on Location, Umkreis, Date search inputs
   const filteredSessions = allCards.filter((c) => {
@@ -356,89 +344,121 @@ export default function Sessions() {
         {/* ────────────────────────────────────────────────────────────────── */}
         {/* 4. SESSIONS CARDS (4-Column Grid matching Figma Exact)             */}
         {/* ────────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          {filteredSessions.map((s) => {
-            const isJoined = s.isJoined || joinedIds.has(s.id)
-            const detailUrl = s.realSessionId ? `/session/${s.realSessionId}` : '/session/erstellen'
+        {/* ────────────────────────────────────────────────────────────────── */}
+        {/* 4. SESSIONS CARDS (Grid showing only real DB sessions)             */}
+        {/* ────────────────────────────────────────────────────────────────── */}
+        {filteredSessions.length === 0 ? (
+          <div className="bg-white rounded-[32px] border border-gray-100/90 shadow-sm p-10 sm:p-14 text-center max-w-lg mx-auto flex flex-col items-center">
+            <div className="w-20 h-20 bg-blue-50 text-[#2F80ED] rounded-full flex items-center justify-center text-3xl mb-4 font-bold">
+              ⚽
+            </div>
+            <h3 className="text-xl font-bold text-gray-950 mb-2">Keine Sessions gefunden</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              {locationInput || umkreisInput || dateInput
+                ? 'Für deine Suchkriterien wurden keine Sessions gefunden.'
+                : 'Es sind noch keine aktiven Sessions vorhanden. Erstelle jetzt die erste Session!'}
+            </p>
+            <Link
+              to="/session/erstellen"
+              className="inline-flex items-center gap-2 bg-[#0B0D17] hover:bg-black text-white text-sm font-semibold px-6 py-3 rounded-full transition-all shadow-xs"
+            >
+              <span>Session erstellen</span>
+              <ArrowRight className="w-4 h-4 text-[#2F80ED]" />
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+            {filteredSessions.map((s) => {
+              const isJoined = s.isJoined || joinedIds.has(s.id)
+              const detailUrl = s.realSessionId ? `/session/${s.realSessionId}` : '/session/erstellen'
 
-            return (
-              <div
-                key={s.id}
-                className="bg-white rounded-[32px] sm:rounded-[36px] border border-gray-100/90 shadow-[0_10px_35px_rgba(0,0,0,0.05)] hover:shadow-xl transition-all duration-300 p-6 sm:p-7 flex flex-col items-center justify-between group"
-              >
-                {/* Top Image area */}
-                <Link
-                  to={detailUrl}
-                  className="w-full h-44 sm:h-48 flex items-center justify-center mb-3 select-none"
+              return (
+                <div
+                  key={s.id}
+                  className="bg-white rounded-[32px] sm:rounded-[36px] border border-gray-100/90 shadow-[0_10px_35px_rgba(0,0,0,0.05)] hover:shadow-xl transition-all duration-300 p-6 sm:p-7 flex flex-col items-center justify-between group"
                 >
-                  {s.isBar ? (
-                    <div className="w-full h-full overflow-hidden rounded-t-[32px] rounded-b-xl flex items-center justify-center">
+                  {/* Top Image area */}
+                  <Link
+                    to={detailUrl}
+                    className="w-full h-44 sm:h-48 flex items-center justify-center mb-3 select-none"
+                  >
+                    {s.imageUrl ? (
+                      <div className="w-full h-full overflow-hidden rounded-2xl flex items-center justify-center bg-gray-50 border border-gray-100">
+                        <img
+                          src={s.imageUrl}
+                          alt={s.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    ) : s.isBar ? (
+                      <div className="w-full h-full overflow-hidden rounded-t-[32px] rounded-b-xl flex items-center justify-center">
+                        <img
+                          src="/figma/session_bar_photo.png"
+                          alt={s.title}
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    ) : (
                       <img
-                        src="/figma/session_bar_photo.png"
+                        src={s.illustration || getSportIllustration(s.sport)}
                         alt={s.title}
-                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                        className="max-h-40 sm:max-h-44 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
                       />
-                    </div>
-                  ) : (
-                    <img
-                      src={s.illustration || getSportIllustration(s.sport)}
-                      alt={s.title}
-                      className="max-h-40 sm:max-h-44 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
-                    />
-                  )}
-                </Link>
-
-                {/* Card Title & Subtitle */}
-                <div className="text-center mb-2 w-full">
-                  <Link to={detailUrl}>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-950 tracking-tight hover:text-[#2F80ED] transition-colors">
-                      {s.sportDisplay}
-                    </h3>
+                    )}
                   </Link>
-                  <p className="text-xs sm:text-sm font-normal text-gray-700 mt-1 line-clamp-1 px-1">
-                    {s.title}
-                  </p>
+
+                  {/* Card Title & Subtitle */}
+                  <div className="text-center mb-2 w-full">
+                    <Link to={detailUrl}>
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-950 tracking-tight hover:text-[#2F80ED] transition-colors">
+                        {s.sportDisplay}
+                      </h3>
+                    </Link>
+                    <p className="text-xs sm:text-sm font-normal text-gray-700 mt-1 line-clamp-1 px-1">
+                      {s.title}
+                    </p>
+                  </div>
+
+                  {/* Details (2x2 grid with Clock, MapPin, Users, Calendar) */}
+                  <div className="w-full grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-medium text-gray-700 mt-4 mb-6 px-1">
+                    <div className="flex items-center gap-1.5" title="Uhrzeit">
+                      <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span>{s.timeDisplay}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5" title="Ort">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span className="truncate">{s.locationDisplay}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5" title="Teilnehmer:innen">
+                      <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span>{s.spotsDisplay}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5" title="Datum">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                      <span>{s.dateDisplay}</span>
+                    </div>
+                  </div>
+
+                  {/* Black Pill Action Button: "Join" */}
+                  <button
+                    type="button"
+                    onClick={() => handleJoin(s)}
+                    className={`w-full py-2.5 rounded-full font-semibold text-sm transition-all shadow-xs ${
+                      isJoined
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-[#0B0D17] hover:bg-black text-white'
+                    }`}
+                  >
+                    {isJoined ? 'Beigetreten' : 'Join'}
+                  </button>
                 </div>
-
-                {/* Details (2x2 grid with Clock, MapPin, Users, Calendar) */}
-                <div className="w-full grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-medium text-gray-700 mt-4 mb-6 px-1">
-                  <div className="flex items-center gap-1.5" title="Uhrzeit">
-                    <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span>{s.timeDisplay}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5" title="Ort">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span className="truncate">{s.locationDisplay}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5" title="Teilnehmer:innen">
-                    <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span>{s.spotsDisplay}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5" title="Datum">
-                    <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span>{s.dateDisplay}</span>
-                  </div>
-                </div>
-
-                {/* Black Pill Action Button: "Join" */}
-                <button
-                  type="button"
-                  onClick={() => handleJoin(s)}
-                  className={`w-full py-2.5 rounded-full font-semibold text-sm transition-all shadow-xs ${
-                    isJoined
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-[#0B0D17] hover:bg-black text-white'
-                  }`}
-                >
-                  {isJoined ? 'Beigetreten' : 'Join'}
-                </button>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
 
       </div>
     </div>

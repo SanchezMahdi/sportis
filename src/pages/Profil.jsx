@@ -4,12 +4,14 @@ import { User, Settings, Bell, LogOut, ChevronRight, Edit2, X, ChevronDown, Came
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { compressImage, uploadImageToStorage } from '../lib/imageUtils'
 
 export default function Profil() {
   const { user, updateProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const avatarInputRef = useRef(null)
+  const myProfileAvatarInputRef = useRef(null)
 
   // Tab state: 'profile' (My Profile board) or 'settings' (Profile Setting board)
   const initialTab = searchParams.get('tab') === 'settings' ? 'settings' : 'profile'
@@ -21,7 +23,7 @@ export default function Profil() {
     lastName: '',
     email: '',
     contactNumber: '',
-    city: 'NYC',
+    city: 'Hamburg',
     password: '',
   })
 
@@ -39,27 +41,64 @@ export default function Profil() {
     }
   }
 
-  // Populate from authenticated user if available
+  // Populate from authenticated user and DB if available
   useEffect(() => {
-    if (user) {
-      const fullName = user.user_metadata?.name || user.user_metadata?.full_name || ''
-      const parts = fullName.split(' ')
-      const fName = parts[0] || ''
-      const lName = parts.slice(1).join(' ') || ''
+    if (!user) return
 
-      setForm((prev) => ({
-        ...prev,
-        firstName: fName || prev.firstName,
-        lastName: lName || prev.lastName,
-        email: user.email || prev.email,
-        contactNumber: user.user_metadata?.phone || prev.contactNumber,
-        city: user.user_metadata?.city || prev.city || 'NYC',
-      }))
+    const cachedAvatar = localStorage.getItem(`sportis_user_avatar_${user.id}`)
+    const metaAvatar = user.user_metadata?.avatar_url
+    if (cachedAvatar) {
+      setAvatarUrl(cachedAvatar)
+    } else if (metaAvatar) {
+      setAvatarUrl(metaAvatar)
+    }
 
-      if (user.user_metadata?.avatar_url) {
-        setAvatarUrl(user.user_metadata.avatar_url)
+    const fullName = user.user_metadata?.name || user.user_metadata?.full_name || ''
+    const parts = fullName.split(' ')
+    const fName = parts[0] || ''
+    const lName = parts.slice(1).join(' ') || ''
+
+    setForm((prev) => ({
+      ...prev,
+      firstName: fName || prev.firstName,
+      lastName: lName || prev.lastName,
+      email: user.email || prev.email,
+      contactNumber: user.user_metadata?.phone || prev.contactNumber,
+      city: user.user_metadata?.city || prev.city || 'Hamburg',
+    }))
+
+    // Also fetch latest from public.users table
+    async function fetchDbProfile() {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!error && data) {
+          if (data.avatar_url) {
+            setAvatarUrl(data.avatar_url)
+            localStorage.setItem(`sportis_user_avatar_${user.id}`, data.avatar_url)
+          }
+          if (data.city) {
+            setForm((p) => ({ ...p, city: data.city }))
+          }
+          if (data.name) {
+            const dbParts = data.name.split(' ')
+            setForm((p) => ({
+              ...p,
+              firstName: dbParts[0] || p.firstName,
+              lastName: dbParts.slice(1).join(' ') || p.lastName,
+            }))
+          }
+        }
+      } catch (err) {
+        console.warn('DB Profil konnte nicht geladen werden:', err)
       }
     }
+
+    fetchDbProfile()
   }, [user])
 
   const handleChange = (field, value) => {
@@ -75,33 +114,55 @@ export default function Profil() {
     }
 
     setUploadingAvatar(true)
+    const toastId = toast.loading('Profilbild wird aktualisiert...')
+
     try {
-      if (user) {
-        const fileExt = file.name.split('.').pop().toLowerCase()
-        const fileName = `avatar-${user.id}.${fileExt}`
-        await supabase.storage.from('avatars').remove([fileName])
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file)
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
-          const newUrl = `${publicUrl}?t=${Date.now()}`
-          setAvatarUrl(newUrl)
-          await updateProfile({ avatar_url: newUrl })
-          toast.success('Profilbild aktualisiert!')
-          return
+      // 1. Client-side compression (350x350, JPEG, quality 0.85)
+      const { dataUrl, blob } = await compressImage(file, {
+        maxWidth: 350,
+        maxHeight: 350,
+        quality: 0.85,
+        mimeType: 'image/jpeg',
+      })
+
+      let finalAvatarUrl = dataUrl
+
+      // 2. Attempt Supabase Storage upload to 'avatars' bucket
+      if (user && blob) {
+        const fileExt = 'jpg'
+        const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`
+        const { publicUrl, error: uploadErr } = await uploadImageToStorage(
+          supabase,
+          'avatars',
+          fileName,
+          blob,
+          'image/jpeg'
+        )
+        if (!uploadErr && publicUrl) {
+          finalAvatarUrl = `${publicUrl}?t=${Date.now()}`
         }
       }
-      // Local preview fallback
-      const reader = new FileReader()
-      reader.onload = () => {
-        setAvatarUrl(reader.result)
-        toast.success('Profilbild aktualisiert!')
+
+      // 3. Immediately save in state & local storage
+      setAvatarUrl(finalAvatarUrl)
+      if (user?.id) {
+        localStorage.setItem(`sportis_user_avatar_${user.id}`, finalAvatarUrl)
       }
-      reader.readAsDataURL(file)
+
+      // 4. Persist to DB and Auth metadata
+      if (user) {
+        await updateProfile({ avatar_url: finalAvatarUrl })
+      }
+
+      toast.success('Profilbild aktualisiert! 🎉', { id: toastId })
     } catch (err) {
-      console.error(err)
-      toast.error('Bild-Upload fehlgeschlagen.')
+      console.error('Fehler beim Profilbild-Upload:', err)
+      toast.error('Bild konnte nicht verarbeitet werden.', { id: toastId })
     } finally {
       setUploadingAvatar(false)
+      // Reset input element so selecting the same file again triggers onChange
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+      if (myProfileAvatarInputRef.current) myProfileAvatarInputRef.current.value = ''
     }
   }
 
@@ -116,6 +177,7 @@ export default function Profil() {
           full_name: fullName || user.user_metadata?.full_name,
           city: form.city,
           phone: form.contactNumber,
+          avatar_url: avatarUrl,
         })
       }
       toast.success('Profil erfolgreich gespeichert! 🎉')
@@ -136,7 +198,7 @@ export default function Profil() {
         lastName: parts.slice(1).join(' ') || '',
         email: user.email || '',
         contactNumber: user.user_metadata?.phone || '',
-        city: user.user_metadata?.city || 'NYC',
+        city: user.user_metadata?.city || 'Hamburg',
         password: '',
       })
     }
@@ -298,21 +360,40 @@ export default function Profil() {
               <div className="flex items-center justify-between pb-6">
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center">
+                    <div
+                      onClick={() => myProfileAvatarInputRef.current?.click()}
+                      className="w-14 h-14 rounded-full overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center cursor-pointer group shadow-2xs relative"
+                      title="Profilbild ändern"
+                    >
                       <img
                         src={avatarUrl || defaultAvatar}
                         alt={displayName}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                        {uploadingAvatar ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Camera className="w-4 h-4 text-white" />
+                        )}
+                      </div>
                     </div>
                     {/* Pencil edit badge */}
                     <button
-                      onClick={() => handleTabChange('settings')}
+                      type="button"
+                      onClick={() => myProfileAvatarInputRef.current?.click()}
                       className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white border border-gray-200 shadow-xs flex items-center justify-center text-gray-700 hover:text-[#2F80ED] transition-colors"
-                      title="Profil bearbeiten"
+                      title="Profilbild ändern"
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
+                    <input
+                      ref={myProfileAvatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
                   </div>
 
                   <div>

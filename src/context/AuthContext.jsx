@@ -87,20 +87,65 @@ export function AuthProvider({ children }) {
   const updateProfile = async (updates) => {
     if (!user) throw new Error('Nicht angemeldet')
 
-    const { data, error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', user.id)
-      .select(PROFILE_SELECT)
-      .single()
-
-    if (error) throw error
-
-    if (updates.name !== undefined) {
-      await supabase.auth.updateUser({ data: { name: updates.name } })
+    // Filter to only columns that exist on the public.users table
+    const allowedColumns = ['name', 'full_name', 'city', 'gender', 'sports', 'avatar_url', 'language']
+    const dbUpdates = {}
+    for (const key of allowedColumns) {
+      if (updates[key] !== undefined) {
+        dbUpdates[key] = updates[key]
+      }
     }
 
-    return data
+    let updatedUserData = null
+    if (Object.keys(dbUpdates).length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .update(dbUpdates)
+          .eq('id', user.id)
+          .select(PROFILE_SELECT)
+          .maybeSingle()
+
+        if (!error && data) {
+          updatedUserData = data
+        }
+      } catch (err) {
+        console.warn('Fehler beim Aktualisieren der public.users Tabelle:', err)
+      }
+    }
+
+    // Always synchronize user_metadata in auth.users
+    const metaUpdates = {}
+    if (updates.name !== undefined) metaUpdates.name = updates.name
+    if (updates.full_name !== undefined) metaUpdates.full_name = updates.full_name
+    if (updates.avatar_url !== undefined) metaUpdates.avatar_url = updates.avatar_url
+    if (updates.city !== undefined) metaUpdates.city = updates.city
+    if (updates.phone !== undefined) metaUpdates.phone = updates.phone
+    if (updates.contactNumber !== undefined) metaUpdates.phone = updates.contactNumber
+
+    if (Object.keys(metaUpdates).length > 0) {
+      try {
+        const { data: authData, error: authError } = await supabase.auth.updateUser({
+          data: metaUpdates,
+        })
+        if (!authError && authData?.user) {
+          setUser(authData.user)
+        }
+      } catch (err) {
+        console.warn('Fehler beim Aktualisieren der Auth Metadaten:', err)
+      }
+    }
+
+    return updatedUserData
+  }
+
+  const refreshUser = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (currentUser) {
+        setUser(currentUser)
+      }
+    } catch {}
   }
 
   const value = {
@@ -111,6 +156,7 @@ export function AuthProvider({ children }) {
     signIn,
     signOut,
     updateProfile,
+    refreshUser,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
