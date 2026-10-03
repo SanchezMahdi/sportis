@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -19,6 +19,7 @@ const Login          = lazy(() => import('./pages/Login'))
 const Impressum      = lazy(() => import('./pages/Impressum'))
 const Datenschutz    = lazy(() => import('./pages/Datenschutz'))
 const AGB            = lazy(() => import('./pages/AGB'))
+const IPhoneApp      = lazy(() => import('./iphone/IPhoneApp'))
 
 function PageLoader() {
   return (
@@ -35,6 +36,19 @@ function Wrap({ children }) {
         {children}
       </Suspense>
     </Layout>
+  )
+}
+
+function WebFloatingOverlays() {
+  const location = useLocation()
+  if (location.pathname.startsWith('/app') || location.pathname.startsWith('/iphone')) {
+    return null
+  }
+  return (
+    <>
+      <CookieBanner />
+      <FeedbackWidget />
+    </>
   )
 }
 
@@ -58,8 +72,7 @@ export default function App() {
           }}
         />
 
-        <CookieBanner />
-        <FeedbackWidget />
+        <WebFloatingOverlays />
         <Routes>
           <Route path="/"                element={<Wrap><Landing /></Wrap>} />
           <Route path="/sessions"        element={<Wrap><Sessions /></Wrap>} />
@@ -75,6 +88,16 @@ export default function App() {
           <Route path="/impressum"       element={<Wrap><Impressum /></Wrap>} />
           <Route path="/datenschutz"     element={<Wrap><Datenschutz /></Wrap>} />
           <Route path="/agb"             element={<Wrap><AGB /></Wrap>} />
+          
+          {/* ── iPhone Native App Experience (Figma Sportis-2.png) ── */}
+          <Route path="/app"             element={<Suspense fallback={<PageLoader />}><IPhoneApp initialTab="home" /></Suspense>} />
+          <Route path="/app/suche"       element={<Suspense fallback={<PageLoader />}><IPhoneApp initialTab="suche" /></Suspense>} />
+          <Route path="/app/events"      element={<Suspense fallback={<PageLoader />}><IPhoneApp initialTab="events" /></Suspense>} />
+          <Route path="/app/profile"     element={<Suspense fallback={<PageLoader />}><IPhoneApp initialTab="profile" /></Suspense>} />
+          <Route path="/app/create"      element={<Suspense fallback={<PageLoader />}><IPhoneApp initialView="create_session" /></Suspense>} />
+          <Route path="/app/login"       element={<Suspense fallback={<PageLoader />}><IPhoneApp initialView="login" /></Suspense>} />
+          <Route path="/app/setup"       element={<Suspense fallback={<PageLoader />}><IPhoneApp initialView="profile_setup" /></Suspense>} />
+          <Route path="/iphone"          element={<Navigate to="/app" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { compressImage, uploadImageToStorage, embedSessionImage } from '../lib/imageUtils'
+import { toSportDbValue } from '../lib/constants'
 
 export default function SessionErstellen() {
   const { user } = useAuth()
@@ -155,7 +156,10 @@ export default function SessionErstellen() {
         }
       }
 
-      const rawDescription = `Universität: ${university || 'Sportis Community'}`
+      const dbSport = toSportDbValue(sport)
+      const isCustomSport = dbSport === 'other'
+      const customSportNote = isCustomSport ? ` | Aktivität: ${sport.trim()}` : ''
+      const rawDescription = `Universität: ${university || 'Sportis Community'}${customSportNote}`
       const finalDescription = uploadedImageUrl
         ? embedSessionImage(rawDescription, uploadedImageUrl)
         : rawDescription
@@ -166,7 +170,7 @@ export default function SessionErstellen() {
           creator_id: user.id,
           host_id: user.id,
           title: title.trim(),
-          sport: sport.trim(),
+          sport: dbSport,
           date: date,
           time: time || '18:00',
           scheduled_at: `${date}T${time || '18:00'}:00Z`,
