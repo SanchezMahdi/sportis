@@ -247,13 +247,33 @@ export default function Sessions() {
     return true
   })
 
+  const [profileName, setProfileName] = useState('')
+
+  useEffect(() => {
+    if (!user?.id) return
+    supabase
+      .from('users')
+      .select('name, full_name')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.name || data?.full_name) {
+          setProfileName(data.name || data.full_name)
+        }
+      })
+  }, [user?.id])
+
   // Mobile list: show canonical showcase session matching Figma 172-1768 exactly
   const mobileSessions = [
     CANONICAL_SHOWCASE_SESSION,
     ...mappedDbSessions.filter((s) => s.id !== '5bb7edc2-8b42-4ca5-9b73-2de5edc7527e'),
   ]
 
-  const userName = user?.user_metadata?.name || user?.user_metadata?.full_name || 'Name'
+  const rawName = profileName || user?.user_metadata?.name || user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : '')
+  const userName = rawName
+    ? (rawName.charAt(0).toUpperCase() + rawName.slice(1))
+    : 'Sportler'
+  const userAvatar = user?.user_metadata?.avatar_url
 
   return (
     <div>
@@ -263,12 +283,42 @@ export default function Sessions() {
       <div className="md:hidden min-h-screen bg-white text-gray-900 font-['Inter',sans-serif] pb-20">
         <div className="max-w-md mx-auto px-4 pt-3">
 
-          {/* 1. Greeting Banner ("Hallo, Name!" with 3D background matching Figma 172-1768) */}
-          <div className="w-full rounded-2xl overflow-hidden shadow-sm mb-3 select-none">
+          {/* 1. Greeting Banner ("Hallo, [Tatsächlicher Name]!" with 3D background matching Figma 172-1768) */}
+          <div className="relative w-full rounded-2xl overflow-hidden shadow-sm mb-3 select-none">
             <img 
-              src="/iphone/header_banner.png" 
-              alt="Hallo, Name!" 
-              className="w-full h-auto object-cover rounded-2xl" 
+              src="/iphone/header_banner_clean.png" 
+              alt={`Hallo, ${userName}!`} 
+              className="w-full h-auto object-cover rounded-2xl block" 
+            />
+
+            {/* Custom Avatar Overlay if user uploaded a custom profile picture */}
+            {userAvatar && (
+              <div className="absolute left-[3.2%] top-[8.5%] w-[15.8%] aspect-square rounded-[14px] overflow-hidden bg-white p-0.5">
+                <img src={userAvatar} alt={userName} className="w-full h-full object-cover rounded-[12px]" />
+                <span className="absolute bottom-1 right-1 w-2.5 h-2.5 bg-[#22C55E] rounded-full border-2 border-white"></span>
+              </div>
+            )}
+
+            {/* Dynamic User Name overlaid exactly in Figma typography */}
+            <div className="absolute left-[24.5%] top-[14%] right-[16%] flex items-center">
+              <span 
+                className="text-white font-bold text-[14px] sm:text-[16px] tracking-tight truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+                title={`Hallo, ${userName}!`}
+              >
+                Hallo, {userName}!
+              </span>
+            </div>
+
+            {/* Tap areas for Profile and Notifications */}
+            <Link
+              to="/profil"
+              className="absolute left-0 top-0 bottom-0 w-3/4 opacity-0 cursor-pointer"
+              title="Mein Profil"
+            />
+            <Link
+              to="/events"
+              className="absolute right-0 top-0 bottom-0 w-1/4 opacity-0 cursor-pointer"
+              title="Benachrichtigungen"
             />
           </div>
 

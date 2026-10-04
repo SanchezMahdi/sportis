@@ -14,12 +14,7 @@ export default function Login() {
   const { user, signIn, signUp } = useAuth()
   const navigate = useNavigate()
 
-  const getDestination = () => {
-    if (typeof window === 'undefined') return '/sessions'
-    return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-      ? '/sessions'
-      : '/profil'
-  }
+  const getDestination = () => '/sessions'
 
   useEffect(() => {
     if (user) {
