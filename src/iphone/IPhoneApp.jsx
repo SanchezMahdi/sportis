@@ -121,48 +121,58 @@ export default function IPhoneApp({ initialTab = 'home', initialView = null }) {
             />
           )}
 
-          {currentView === 'create_session' && (
-            <IPhoneCreateSession
-              onCreated={handleCreatedSession}
-              onBack={() => setCurrentView(null)}
-            />
-          )}
-
-          {currentView === 'event_detail' && (
-            <IPhoneEventDetail
-              onBack={() => setCurrentView(null)}
-            />
-          )}
-
-          {!currentView && activeTab === 'home' && (
-            <IPhoneHome
-              onNavigateCreate={() => setCurrentView('create_session')}
-              onSelectSession={(id) => {}}
-            />
-          )}
-
-          {!currentView && activeTab === 'suche' && (
-            <IPhoneSpots
-              onSelectSpot={(spot) => {}}
-            />
-          )}
-
-          {!currentView && activeTab === 'events' && (
-            <IPhoneEvents
-              onSelectEvent={handleSelectEvent}
-            />
-          )}
-
-          {!currentView && activeTab === 'profile' && (
-            <IPhoneProfile
-              onNavigateLogin={() => setCurrentView('login')}
+          {/* 3. Main Views & Tabs */}
+          {!user && currentView !== 'profile_setup' ? (
+            <IPhoneLogin
+              onSuccess={() => setCurrentView(null)}
               onNavigateSetup={() => setCurrentView('profile_setup')}
             />
+          ) : (
+            <>
+              {currentView === 'create_session' && (
+                <IPhoneCreateSession
+                  onCreated={handleCreatedSession}
+                  onBack={() => setCurrentView(null)}
+                />
+              )}
+
+              {currentView === 'event_detail' && (
+                <IPhoneEventDetail
+                  onBack={() => setCurrentView(null)}
+                />
+              )}
+
+              {!currentView && activeTab === 'home' && (
+                <IPhoneHome
+                  onNavigateCreate={() => setCurrentView('create_session')}
+                  onSelectSession={(id) => {}}
+                />
+              )}
+
+              {!currentView && activeTab === 'suche' && (
+                <IPhoneSpots
+                  onSelectSpot={(spot) => {}}
+                />
+              )}
+
+              {!currentView && activeTab === 'events' && (
+                <IPhoneEvents
+                  onSelectEvent={handleSelectEvent}
+                />
+              )}
+
+              {!currentView && activeTab === 'profile' && (
+                <IPhoneProfile
+                  onNavigateLogin={() => setCurrentView('login')}
+                  onNavigateSetup={() => setCurrentView('profile_setup')}
+                />
+              )}
+            </>
           )}
         </main>
 
-        {/* 4. Bottom Tab Bar (docked at bottom when not in sub-view) */}
-        {!isSubPage && (
+        {/* 4. Bottom Tab Bar (docked at bottom when logged in and not in sub-view) */}
+        {!isSubPage && user && (
           <IPhoneTabBar
             activeTab={activeTab}
             onChangeTab={handleTabChange}

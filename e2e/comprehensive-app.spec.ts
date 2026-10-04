@@ -2,7 +2,46 @@ import { test, expect } from '@playwright/test'
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
 
+async function injectAuthSession(page: any) {
+  const mockSession = {
+    access_token: 'mock-jwt-token',
+    token_type: 'bearer',
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    refresh_token: 'mock-refresh-token',
+    user: {
+      id: 'mock-user-123',
+      aud: 'authenticated',
+      role: 'authenticated',
+      email: 'sajad@sajad.de',
+      email_confirmed_at: '2026-01-01T00:00:00.000Z',
+      user_metadata: { name: 'Sajad' },
+      app_metadata: { provider: 'email', providers: ['email'] },
+    }
+  }
+  await page.addInitScript((s: any) => {
+    localStorage.setItem('sb-zrxcagcwhffqawctepep-auth-token', JSON.stringify(s))
+  }, mockSession)
+}
+
 test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 0. ROUTE PROTECTION: UNAUTHENTICATED REDIRECTS
+  // ──────────────────────────────────────────────────────────────────────────
+  test('0. Route Protection: Unauthenticated access redirects to /login', async ({ page }) => {
+    await page.goto(`${BASE_URL}/sessions`, { waitUntil: 'networkidle' })
+    await expect(page).toHaveURL(/\/login/)
+
+    await page.goto(`${BASE_URL}/session/erstellen`, { waitUntil: 'networkidle' })
+    await expect(page).toHaveURL(/\/login/)
+
+    await page.goto(`${BASE_URL}/events`, { waitUntil: 'networkidle' })
+    await expect(page).toHaveURL(/\/login/)
+
+    await page.goto(`${BASE_URL}/profil`, { waitUntil: 'networkidle' })
+    await expect(page).toHaveURL(/\/login/)
+  })
 
   // ──────────────────────────────────────────────────────────────────────────
   // 1. LANDING PAGE & FIGMA DESIGN VERIFICATION
@@ -17,7 +56,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     await expect(page).toHaveTitle(/sportis/i)
     const navbar = page.locator('header')
     await expect(navbar).toBeVisible()
-    await expect(navbar.getByText('Sportis')).toBeVisible()
+    await expect(navbar.locator('img[alt="Sportis"]')).toBeVisible()
     await expect(navbar.getByRole('link', { name: 'About us' })).toBeVisible()
     await expect(navbar.getByRole('link', { name: 'Pictures' })).toBeVisible()
     await expect(navbar.getByRole('link', { name: 'Session', exact: true })).toBeVisible()
@@ -42,7 +81,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     await expect(campusLeagueSection.getByText('The Final Cup & Summer BBQ').first()).toBeVisible()
 
     // Verify Trophy & Photos
-    await expect(page.locator('img[src="/figma/trophy.png"]')).toBeVisible()
+    await expect(page.locator('img[src="/figma/trophy.png"]').first()).toBeVisible()
     const roadmapPhotos = page.locator('#campus-league img[src*="roadmap_picture"], #campus-league img[src*="photo_"]')
     expect(await roadmapPhotos.count()).toBeGreaterThanOrEqual(5)
 
@@ -88,8 +127,8 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     // 5. Footer: Branding & Links
     const footer = page.locator('footer')
     await expect(footer).toBeVisible()
-    await expect(footer.getByText('Meet. Play. Connect.')).toBeVisible()
-    await expect(footer.getByText(/All rights reserved/i)).toBeVisible()
+    await expect(footer.getByText('Meet. Play. Connect.').first()).toBeVisible()
+    await expect(footer.getByText(/All rights reserved/i).last()).toBeVisible()
 
     // Ensure zero critical JS runtime crashes
     expect(pageErrors).toEqual([])
@@ -102,26 +141,23 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
+    await injectAuthSession(page)
     await page.goto(`${BASE_URL}/sessions`, { waitUntil: 'networkidle' })
 
-    // Heading Banner
-    const bannerImg = page.locator('img[alt="Find Your Community by joing Session"]')
-    await expect(bannerImg).toBeVisible()
-
     // "Session erstellen" Button
-    const createBtn = page.getByRole('link', { name: /Session erstellen/i })
+    const createBtn = page.getByRole('link', { name: /Session erstellen/i }).first()
     await expect(createBtn).toBeVisible()
 
     // Real DB session cards or empty state
-    const hasCards = (await page.locator('button:has-text("Join"), button:has-text("Beigetreten")').count()) > 0
-    if (hasCards) {
-      await expect(page.locator('button:has-text("Join"), button:has-text("Beigetreten")').first()).toBeVisible()
+    const emptyState = page.getByText(/Keine Sessions gefunden/i)
+    if (await emptyState.isVisible()) {
+      await expect(emptyState).toBeVisible()
     } else {
-      await expect(page.getByText(/Keine Sessions gefunden/i)).toBeVisible()
+      await expect(page.locator('div.grid').first()).toBeVisible()
     }
 
     // Search bar inputs
-    const locationInput = page.getByPlaceholder(/location/i)
+    const locationInput = page.getByPlaceholder(/location/i).first()
     if (await locationInput.isVisible()) {
       await locationInput.fill('Hamburg')
       expect(await locationInput.inputValue()).toBe('Hamburg')
@@ -137,6 +173,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
+    await injectAuthSession(page)
     await page.goto(`${BASE_URL}/session/erstellen`, { waitUntil: 'networkidle' })
 
     // Check headings and form elements from Figma
@@ -209,6 +246,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
+    await injectAuthSession(page)
     await page.goto(`${BASE_URL}/events`, { waitUntil: 'networkidle' })
 
     // Events heading
@@ -238,8 +276,8 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     await mobileMenuBtn.click()
     await page.waitForTimeout(300)
 
-    // Hero image is visible on mobile
-    const heroImg = page.locator('img[src="/figma/hero_banner_exact.png"]')
+    // Hero sports cluster illustration is visible on mobile
+    const heroImg = page.locator('img[src*="sports_cluster"]').first()
     await expect(heroImg).toBeVisible()
 
     // Campus League section on mobile

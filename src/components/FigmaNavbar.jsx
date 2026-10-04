@@ -70,7 +70,7 @@ export default function FigmaNavbar() {
               Pictures
             </a>
             <Link 
-              to="/sessions" 
+              to={user ? "/sessions" : "/login"} 
               className={`text-[15px] font-medium transition-colors ${
                 location.pathname === '/sessions' ? 'text-[#5B3FE9] font-bold' : 'text-gray-600 hover:text-gray-950'
               }`}
@@ -158,7 +158,7 @@ export default function FigmaNavbar() {
               Pictures
             </a>
             <Link
-              to="/sessions"
+              to={user ? "/sessions" : "/login"}
               onClick={() => setMobileOpen(false)}
               className="text-base font-medium text-gray-700 hover:text-gray-900"
             >

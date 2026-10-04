@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { EyeOff, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
@@ -13,8 +13,12 @@ export default function Login() {
 
   const { user, signIn, signUp } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const getDestination = () => '/sessions'
+  const getDestination = () => {
+    const from = location.state?.from?.pathname
+    return from && from !== '/login' ? from : '/sessions'
+  }
 
   useEffect(() => {
     if (user) {

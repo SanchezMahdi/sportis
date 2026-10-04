@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Facebook, Instagram, Linkedin } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 function TikTokIcon({ className = "w-4 h-4" }) {
   return (
@@ -14,6 +15,7 @@ function TikTokIcon({ className = "w-4 h-4" }) {
 }
 
 export default function FigmaFooter() {
+  const { user } = useAuth()
   const scrollToSection = (id) => {
     const element = document.getElementById(id)
     if (element) {
@@ -70,7 +72,7 @@ export default function FigmaFooter() {
                 </a>
               </li>
               <li>
-                <Link to="/sessions" className="hover:text-gray-900 transition-colors">
+                <Link to={user ? "/sessions" : "/login"} className="hover:text-gray-900 transition-colors">
                   Sessions
                 </Link>
               </li>
