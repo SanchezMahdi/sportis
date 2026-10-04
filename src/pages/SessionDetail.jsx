@@ -176,6 +176,15 @@ export default function SessionDetail() {
   const [plusOne, setPlusOne] = useState(false)
   const [attendanceRatings, setAttendanceRatings] = useState({})
   const [ratingLoading, setRatingLoading] = useState({})
+  const [userReliabilityScores, setUserReliabilityScores] = useState({})
+
+  const getUserReliability = useCallback((targetUserId) => {
+    if (!targetUserId) return 100
+    if (userReliabilityScores[targetUserId] !== undefined) {
+      return userReliabilityScores[targetUserId]
+    }
+    return 100
+  }, [userReliabilityScores])
 
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
@@ -260,6 +269,24 @@ export default function SessionDetail() {
       const effectiveLocation = data.location || data.location_name || 'Hamburg'
       const { imageUrl, cleanDescription } = extractSessionImage(data.description)
 
+      if (effectiveCreatorId) {
+        try {
+          const { data: creatorAttRevs } = await supabase
+            .from('reviews')
+            .select('rating')
+            .eq('to_user_id', effectiveCreatorId)
+            .in('notes', ['pünktlich', 'zu spät', 'nicht erschienen'])
+
+          if (creatorAttRevs && creatorAttRevs.length > 0) {
+            const sum = creatorAttRevs.reduce((a, b) => a + (Number(b.rating) || 0), 0)
+            const score = Math.round(sum / creatorAttRevs.length)
+            setUserReliabilityScores((prev) => ({ ...prev, [effectiveCreatorId]: score }))
+          }
+        } catch (crErr) {
+          console.warn('Creator-Zuverlässigkeit konnte nicht geladen werden:', crErr)
+        }
+      }
+
       setSession({
         ...data,
         creator_id: effectiveCreatorId,
@@ -288,7 +315,7 @@ export default function SessionDetail() {
       if (error) throw error
       setParticipants(data || [])
 
-      // Load existing attendance evaluations from reviews
+      // Load existing attendance evaluations from reviews for this session
       try {
         const { data: revs } = await supabase
           .from('reviews')
@@ -305,6 +332,34 @@ export default function SessionDetail() {
         }
       } catch (revErr) {
         console.warn('Bewertungen konnten nicht geladen werden:', revErr)
+      }
+
+      // Load overall attendance evaluations from reviews to calculate accurate reliability
+      try {
+        const participantIds = (data || []).map((p) => p.user_id).filter(Boolean)
+        if (participantIds.length > 0) {
+          const { data: allAttRevs } = await supabase
+            .from('reviews')
+            .select('to_user_id, rating, notes')
+            .in('to_user_id', participantIds)
+            .in('notes', ['pünktlich', 'zu spät', 'nicht erschienen'])
+
+          if (allAttRevs && allAttRevs.length > 0) {
+            const grouped = {}
+            allAttRevs.forEach((r) => {
+              if (!grouped[r.to_user_id]) grouped[r.to_user_id] = []
+              grouped[r.to_user_id].push(Number(r.rating))
+            })
+            const relMap = {}
+            Object.keys(grouped).forEach((uid) => {
+              const sum = grouped[uid].reduce((a, b) => a + b, 0)
+              relMap[uid] = Math.round(sum / grouped[uid].length)
+            })
+            setUserReliabilityScores((prev) => ({ ...prev, ...relMap }))
+          }
+        }
+      } catch (attErr) {
+        console.warn('Zuverlässigkeitswerte konnten nicht geladen werden:', attErr)
       }
     } catch (err) {
       console.error('Teilnehmer konnten nicht geladen werden:', err)
@@ -532,21 +587,17 @@ export default function SessionDetail() {
           .eq('user_id', targetUserId)
       } catch {}
 
-      // 3. Berechne neue Gesamt-Zuverlässigkeit für den Nutzer
+      // 3. Berechne neue Gesamt-Zuverlässigkeit für den Nutzer aus Anwesenheitsbewertungen
       let newScore = config.rating
       try {
         const { data: allReviews } = await supabase
           .from('reviews')
           .select('rating')
           .eq('to_user_id', targetUserId)
-          .not('rating', 'is', null)
+          .in('notes', ['pünktlich', 'zu spät', 'nicht erschienen'])
 
         if (allReviews && allReviews.length > 0) {
-          const sum = allReviews.reduce((acc, curr) => {
-            const raw = Number(curr.rating) || 0
-            const normalized = raw <= 5 ? (raw / 5) * 100 : raw
-            return acc + normalized
-          }, 0)
+          const sum = allReviews.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0)
           newScore = Math.round(sum / allReviews.length)
         }
       } catch {}
@@ -559,7 +610,12 @@ export default function SessionDetail() {
           .eq('id', targetUserId)
       } catch {}
 
-      // 5. Update lokale Teilnehmer-Liste
+      // 5. Update lokale Zuverlässigkeits-Scores und Teilnehmer-Liste
+      setUserReliabilityScores((prev) => ({
+        ...prev,
+        [targetUserId]: newScore,
+      }))
+
       setParticipants((prev) =>
         prev.map((p) => {
           if (p.user_id === targetUserId) {
@@ -1405,9 +1461,7 @@ export default function SessionDetail() {
                   </p>
                 )}
                 {session.creator && (() => {
-                  const creatorRel = (session.creator.reliability_score === 50 || session.creator.reliability_score == null)
-                    ? 100
-                    : Math.round(session.creator.reliability_score)
+                  const creatorRel = getUserReliability(session.creator?.id || session.creator_id || session.host_id)
                   return (
                     <div className="flex items-center gap-1.5 mt-2">
                       <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
@@ -1443,9 +1497,7 @@ export default function SessionDetail() {
             ) : (
               <div className="flex flex-col gap-2.5">
                 {participants.map((p) => {
-                  const userReliability = (p.user?.reliability_score === 50 || p.user?.reliability_score == null)
-                    ? 100
-                    : Math.round(p.user.reliability_score)
+                  const userReliability = getUserReliability(p.user_id || p.user?.id)
                   const isCurrentUserCreatorOrHost = p.user_id === session.creator_id || p.user_id === session.host_id
                   const attendance = attendanceRatings[p.user_id]
 

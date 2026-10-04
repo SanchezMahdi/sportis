@@ -123,6 +123,7 @@ export default function RankingLeaderboard({ currentUserId, sport = null }) {
             p_city: null,
           })
 
+        let userList = []
         if (error) {
           // Fallback: Lade alle User direkt aus der DB
           console.warn('RPC-Fehler, lade Fallback-Daten...', error)
@@ -132,13 +133,44 @@ export default function RankingLeaderboard({ currentUserId, sport = null }) {
             .limit(50)
           
           if (dbError) throw dbError
-          const userList = Array.isArray(allUsers) ? allUsers : []
-          setUsers(userList)
+          userList = Array.isArray(allUsers) ? allUsers : []
         } else {
           // Konvertiere zu Array falls nicht schon
-          const userList = Array.isArray(data) ? data : data ? [data] : []
-          setUsers(userList)
+          userList = Array.isArray(data) ? data : data ? [data] : []
         }
+
+        // Zuverlässigkeit ab heute: 100% Baseline, es sei denn Anwesenheitsbewertungen existieren
+        try {
+          const { data: attRevs } = await supabase
+            .from('reviews')
+            .select('to_user_id, rating')
+            .in('notes', ['pünktlich', 'zu spät', 'nicht erschienen'])
+
+          const relMap = {}
+          if (attRevs && attRevs.length > 0) {
+            const grouped = {}
+            attRevs.forEach((r) => {
+              if (!grouped[r.to_user_id]) grouped[r.to_user_id] = []
+              grouped[r.to_user_id].push(Number(r.rating))
+            })
+            Object.keys(grouped).forEach((uid) => {
+              const sum = grouped[uid].reduce((a, b) => a + b, 0)
+              relMap[uid] = Math.round(sum / grouped[uid].length)
+            })
+          }
+
+          userList = userList.map((u) => ({
+            ...u,
+            reliability_score: relMap[u.id || u.user_id] ?? 100,
+          }))
+        } catch {
+          userList = userList.map((u) => ({
+            ...u,
+            reliability_score: 100,
+          }))
+        }
+
+        setUsers(userList)
       } catch (err) {
         console.error('Fehler beim Laden des Leaderboards:', err)
         // Noch ein Fallback: Leere Liste statt Crash

@@ -142,9 +142,22 @@ export default function ScoreTracker({ userId }) {
             win_loss_ratio: 0,
           })
         } else {
-          const userRel = (userData?.reliability_score === 50 || userData?.reliability_score == null)
-            ? 100
-            : userData.reliability_score
+          let userRel = 100
+          try {
+            const { data: attReviews } = await supabase
+              .from('reviews')
+              .select('rating')
+              .eq('to_user_id', userId)
+              .in('notes', ['pünktlich', 'zu spät', 'nicht erschienen'])
+
+            if (attReviews && attReviews.length > 0) {
+              const sum = attReviews.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0)
+              userRel = Math.round(sum / attReviews.length)
+            }
+          } catch (e) {
+            console.warn('Zuverlässigkeit konnte nicht aus Reviews geladen werden:', e)
+          }
+
           setStats({
             ...(userData || {}),
             id: userId,
