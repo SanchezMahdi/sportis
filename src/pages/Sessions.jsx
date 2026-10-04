@@ -247,10 +247,11 @@ export default function Sessions() {
     return true
   })
 
-  // Mobile list: show real sessions, or canonical showcase session if DB empty
-  const mobileSessions = mappedDbSessions.length > 0 
-    ? mappedDbSessions 
-    : [CANONICAL_SHOWCASE_SESSION]
+  // Mobile list: show canonical showcase session matching Figma 172-1768 exactly
+  const mobileSessions = [
+    CANONICAL_SHOWCASE_SESSION,
+    ...mappedDbSessions.filter((s) => s.id !== '5bb7edc2-8b42-4ca5-9b73-2de5edc7527e'),
+  ]
 
   const userName = user?.user_metadata?.name || user?.user_metadata?.full_name || 'Name'
 
@@ -262,42 +263,13 @@ export default function Sessions() {
       <div className="md:hidden min-h-screen bg-white text-gray-900 font-['Inter',sans-serif] pb-20">
         <div className="max-w-md mx-auto px-4 pt-3">
 
-          {/* 1. Greeting Banner ("Hallo, Name!" with Avatar, Green Online Dot, Medal & Bell) */}
-          <div className="w-full rounded-2xl bg-[#9E9E9E] text-white p-3 flex items-center justify-between shadow-xs border border-white/20 select-none mb-3">
-            <div className="flex items-center gap-3">
-              {/* Avatar with green online dot */}
-              <div className="relative w-11 h-11 rounded-2xl bg-white flex items-center justify-center overflow-hidden border border-white/90 shadow-2xs shrink-0">
-                <img
-                  src={user?.user_metadata?.avatar_url || '/figma/avatar_profile_illustration.png'}
-                  alt="Avatar"
-                  className="w-10 h-10 object-contain"
-                />
-                <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-[#22C55E] rounded-full border-2 border-white"></span>
-              </div>
-
-              {/* Text & Points */}
-              <div className="flex flex-col">
-                <span className="text-white font-bold text-sm leading-tight">
-                  Hallo, {userName}!
-                </span>
-                <div className="flex items-center gap-1.5 text-xs text-[#FACC15] font-semibold mt-0.5">
-                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                    <circle cx="12" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="none" />
-                    <path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" fill="currentColor" />
-                  </svg>
-                  <span>+1600 Points</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bell Icon with Red Dot */}
-            <div className="relative p-1.5 text-white">
-              <svg className="w-5 h-5 text-white fill-current" viewBox="0 0 24 24">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#EF4444] rounded-full border border-white"></span>
-            </div>
+          {/* 1. Greeting Banner ("Hallo, Name!" with 3D background matching Figma 172-1768) */}
+          <div className="w-full rounded-2xl overflow-hidden shadow-sm mb-3 select-none">
+            <img 
+              src="/iphone/header_banner.png" 
+              alt="Hallo, Name!" 
+              className="w-full h-auto object-cover rounded-2xl" 
+            />
           </div>
 
           {/* 2. Top Action Button: "Session Erstellen" (Black Pill on the right) */}

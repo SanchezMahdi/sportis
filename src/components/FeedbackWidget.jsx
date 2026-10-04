@@ -51,11 +51,11 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      {/* Floating trigger button — safe-area-aware so iOS Safari bar doesn't cover it */}
+      {/* Floating trigger button — safe-area-aware so iOS Safari bar doesn't cover it (desktop only) */}
       <button
         onClick={() => { setOpen(true); reset() }}
         aria-label="Feedback geben"
-        className={`fixed right-4 z-50 flex items-center gap-2 bg-primary text-dark font-bold text-sm px-4 py-3 rounded-full shadow-lg shadow-primary/20 hover:bg-green-400 active:scale-95 transition-all ${open ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        className={`fixed right-4 z-50 hidden md:flex items-center gap-2 bg-primary text-dark font-bold text-sm px-4 py-3 rounded-full shadow-lg shadow-primary/20 hover:bg-green-400 active:scale-95 transition-all ${open ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
       >
         <MessageSquarePlus className="w-4 h-4" />
