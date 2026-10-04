@@ -324,7 +324,7 @@ test.describe('End-to-End Testsuite: Sportis Full Functionality Audit', () => {
     await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle' })
 
     // Verify TikTok icon in footer instead of Twitter
-    const tiktokLink = page.locator('footer a[aria-label="TikTok"]')
+    const tiktokLink = page.locator('footer a[aria-label="TikTok"]').first()
     await expect(tiktokLink).toBeVisible()
     await expect(tiktokLink).toHaveAttribute('href', /tiktok\.com/i)
 

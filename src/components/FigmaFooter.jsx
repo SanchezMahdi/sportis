@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Facebook, Instagram, Twitter, Linkedin } from 'lucide-react'
+import { Facebook, Instagram, Linkedin } from 'lucide-react'
 
 function TikTokIcon({ className = "w-4 h-4" }) {
   return (
@@ -122,7 +122,7 @@ export default function FigmaFooter() {
                 <Facebook className="w-4 h-4 fill-current" />
               </a>
               <a 
-                href="https://instagram.com" 
+                href="https://www.instagram.com/sportissocial?stkn=Zmo0dXkzeXZoamhq&utm_source=qr" 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-600 hover:text-pink-600 hover:border-pink-200 transition-colors"
@@ -131,7 +131,7 @@ export default function FigmaFooter() {
                 <Instagram className="w-4 h-4" />
               </a>
               <a 
-                href="https://tiktok.com/@sportis" 
+                href="https://www.tiktok.com/@sportis10?_r=1&_t=ZG-9AHI1EC0ggC" 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-600 hover:text-black hover:border-gray-900 transition-colors"
@@ -181,7 +181,7 @@ export default function FigmaFooter() {
                 <Facebook className="w-4 h-4 fill-current" />
               </a>
               <a 
-                href="https://instagram.com" 
+                href="https://www.instagram.com/sportissocial?stkn=Zmo0dXkzeXZoamhq&utm_source=qr" 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-pink-600 transition-colors"
@@ -190,13 +190,13 @@ export default function FigmaFooter() {
                 <Instagram className="w-4 h-4" />
               </a>
               <a 
-                href="https://twitter.com" 
+                href="https://www.tiktok.com/@sportis10?_r=1&_t=ZG-9AHI1EC0ggC" 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-black transition-colors"
-                aria-label="Twitter"
+                aria-label="TikTok"
               >
-                <Twitter className="w-4 h-4 fill-current" />
+                <TikTokIcon className="w-4 h-4" />
               </a>
               <a 
                 href="https://linkedin.com" 
