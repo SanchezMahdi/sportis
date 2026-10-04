@@ -107,8 +107,6 @@ export default function FigmaFooter() {
               <h3 className="text-gray-900 font-bold text-base mb-4">Contact us</h3>
               <p className="text-sm leading-relaxed text-gray-500 mb-6 max-w-sm">
                 We're here to help! Reach out, join a session, or become part of the Sportis community.
-                <br />
-                <span className="text-gray-900 font-medium">+923183561921</span>
               </p>
             </div>
 
@@ -162,9 +160,6 @@ export default function FigmaFooter() {
             <h3 className="text-gray-900 font-bold text-xl mb-3">Contact us</h3>
             <p className="text-[15px] leading-relaxed text-gray-500 mb-1">
               We're here to help! Reach out, join a session, or become part of the Sportis community.
-            </p>
-            <p className="text-[15px] text-gray-600 font-medium mt-1">
-              +923183561921
             </p>
           </div>
 
