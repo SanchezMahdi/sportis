@@ -20,6 +20,7 @@ const Login          = lazy(() => import('./pages/Login'))
 const Impressum      = lazy(() => import('./pages/Impressum'))
 const Datenschutz    = lazy(() => import('./pages/Datenschutz'))
 const AGB            = lazy(() => import('./pages/AGB'))
+const Ranking        = lazy(() => import('./pages/Ranking'))
 const IPhoneApp      = lazy(() => import('./iphone/IPhoneApp'))
 
 function PageLoader() {
@@ -89,6 +90,7 @@ export default function App() {
           <Route path="/impressum"       element={<Wrap><Impressum /></Wrap>} />
           <Route path="/datenschutz"     element={<Wrap><Datenschutz /></Wrap>} />
           <Route path="/agb"             element={<Wrap><AGB /></Wrap>} />
+          <Route path="/ranking"         element={<Wrap><Ranking /></Wrap>} />
           
           {/* ── iPhone Native App Experience (Figma Sportis-2.png) ── */}
           <Route path="/app"             element={<Suspense fallback={<PageLoader />}><IPhoneApp initialTab="home" /></Suspense>} />
