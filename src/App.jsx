@@ -76,11 +76,11 @@ export default function App() {
         <WebFloatingOverlays />
         <Routes>
           <Route path="/"                element={<Wrap><Landing /></Wrap>} />
-          <Route path="/sessions"        element={<ProtectedRoute><Wrap><Sessions /></Wrap></ProtectedRoute>} />
+          <Route path="/sessions"        element={<Wrap><Sessions /></Wrap>} />
           <Route path="/events"          element={<ProtectedRoute><Wrap><Events /></Wrap></ProtectedRoute>} />
           <Route path="/entdecken"       element={<ProtectedRoute><Wrap><Entdecken /></Wrap></ProtectedRoute>} />
           <Route path="/session/erstellen" element={<ProtectedRoute><Wrap><SessionErstellen /></Wrap></ProtectedRoute>} />
-          <Route path="/session/:id"     element={<ProtectedRoute><Wrap><SessionDetail /></Wrap></ProtectedRoute>} />
+          <Route path="/session/:id"     element={<Wrap><SessionDetail /></Wrap>} />
           <Route path="/plaetze"         element={<Navigate to="/#pictures" replace />} />
           <Route path="/profil"          element={<ProtectedRoute><Wrap><Profil /></Wrap></ProtectedRoute>} />
           <Route path="/profile"         element={<Navigate to="/profil" replace />} />

@@ -72,7 +72,7 @@ export default function FigmaFooter() {
                 </a>
               </li>
               <li>
-                <Link to={user ? "/sessions" : "/login"} className="hover:text-gray-900 transition-colors">
+                <Link to="/sessions" className="hover:text-gray-900 transition-colors">
                   Sessions
                 </Link>
               </li>

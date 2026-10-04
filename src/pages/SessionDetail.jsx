@@ -144,14 +144,12 @@ export default function SessionDetail() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login', { replace: true })
-    }
-  }, [user, authLoading, navigate])
-
-  if (authLoading || !user) {
-    return null
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   if (id === 'football' || id === 'basketball' || id === 'swimming' || id === 'figma' || id === 'detail' || id === 'showcase-soccer-homepage') {

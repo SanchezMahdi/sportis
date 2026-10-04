@@ -107,12 +107,6 @@ export default function Sessions() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login', { replace: true })
-    }
-  }, [user, loading, navigate])
-
   const [dbSessions, setDbSessions] = useState([])
   const [joinedIds, setJoinedIds] = useState(new Set())
 
@@ -121,8 +115,12 @@ export default function Sessions() {
   const [umkreisInput, setUmkreisInput] = useState('')
   const [dateInput, setDateInput] = useState('')
 
-  if (loading || !user) {
-    return null
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-[#2F80ED] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   // Fetch real sessions from Supabase
