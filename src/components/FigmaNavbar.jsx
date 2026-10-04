@@ -27,6 +27,12 @@ export default function FigmaNavbar() {
     setMobileOpen(false)
     if (location.pathname !== '/') {
       navigate(`/#${id}`)
+      setTimeout(() => {
+        const element = document.getElementById(id)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 200)
       return
     }
     const element = document.getElementById(id)

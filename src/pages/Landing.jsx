@@ -98,12 +98,36 @@ export default function Landing() {
   const [showMobilePassword, setShowMobilePassword] = useState(false)
   const [mobileLoading, setMobileLoading] = useState(false)
 
-  // When a user is logged in, automatically redirect them to /sessions
+  // When a user is logged in, redirect them to /sessions ONLY if they didn't navigate to a specific section (e.g. #about-us, #pictures)
   useEffect(() => {
-    if (user) {
+    const hash = window.location.hash
+    if (hash) {
+      const id = hash.replace('#', '')
+      const el = document.getElementById(id)
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth' })
+        }, 150)
+      }
+    } else if (user) {
       navigate('/sessions', { replace: true })
     }
   }, [user, navigate])
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash
+      if (hash) {
+        const id = hash.replace('#', '')
+        const el = document.getElementById(id)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' })
+        }
+      }
+    }
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
 
   const handleMobileLogin = async (e) => {
     e.preventDefault()
