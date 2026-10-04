@@ -141,11 +141,22 @@ function getSendMessageErrorText(error) {
 
 export default function SessionDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', { replace: true })
+    }
+  }, [user, authLoading, navigate])
+
+  if (authLoading || !user) {
+    return null
+  }
+
   if (id === 'football' || id === 'basketball' || id === 'swimming' || id === 'figma' || id === 'detail') {
     return <FigmaSessionDetail />
   }
-  const navigate = useNavigate()
-  const { user } = useAuth()
 
   const [session, setSession] = useState(null)
   const [participants, setParticipants] = useState([])

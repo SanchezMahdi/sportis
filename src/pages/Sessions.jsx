@@ -116,8 +116,14 @@ const CANONICAL_SHOWCASE_SESSION = {
 }
 
 export default function Sessions() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login', { replace: true })
+    }
+  }, [user, loading, navigate])
 
   const [dbSessions, setDbSessions] = useState([])
   const [joinedIds, setJoinedIds] = useState(new Set())
@@ -126,6 +132,10 @@ export default function Sessions() {
   const [locationInput, setLocationInput] = useState('')
   const [umkreisInput, setUmkreisInput] = useState('')
   const [dateInput, setDateInput] = useState('')
+
+  if (loading || !user) {
+    return null
+  }
 
   // Fetch real sessions from Supabase
   const fetchRealSessions = useCallback(async () => {

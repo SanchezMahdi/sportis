@@ -8,11 +8,21 @@ import { compressImage, uploadImageToStorage, embedSessionImage } from '../lib/i
 import { toSportDbValue } from '../lib/constants'
 
 export default function SessionErstellen() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/login', { replace: true })
+    }
+  }, [user, loading, navigate])
 
   // Form State
   const [level, setLevel] = useState('Anfänger') // 'Anfänger' | 'Mittel'
+
+  if (loading || !user) {
+    return null
+  }
   const [equipmentRequired, setEquipmentRequired] = useState(false) // false = 'Nein' checked, true = 'Ja' checked
   const [title, setTitle] = useState('')
   const [titleError, setTitleError] = useState(false)
