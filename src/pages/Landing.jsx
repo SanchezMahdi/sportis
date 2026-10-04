@@ -128,10 +128,11 @@ export default function Landing() {
 
   const handleOAuth = async (provider) => {
     try {
+      const isMobile = window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + '/sessions',
+          redirectTo: window.location.origin + (isMobile ? '/sessions' : '/profil'),
         },
       })
       if (error) throw error

@@ -14,9 +14,16 @@ export default function Login() {
   const { user, signIn, signUp } = useAuth()
   const navigate = useNavigate()
 
+  const getDestination = () => {
+    if (typeof window === 'undefined') return '/sessions'
+    return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      ? '/sessions'
+      : '/profil'
+  }
+
   useEffect(() => {
     if (user) {
-      navigate('/sessions', { replace: true })
+      navigate(getDestination(), { replace: true })
     }
   }, [user, navigate])
 
@@ -52,17 +59,18 @@ export default function Login() {
     setLoading(true)
 
     try {
+      const dest = getDestination()
       if (isLoginMode) {
         await signIn(formData.email, formData.password)
         toast.success('Willkommen zurück!')
-        navigate('/sessions')
+        navigate(dest)
       } else {
         const result = await signUp(formData.email, formData.password, {
           name: formData.username,
         })
         if (result.session) {
           toast.success('Konto erfolgreich erstellt! Willkommen bei Sportis! 🎉')
-          navigate('/sessions')
+          navigate(dest)
         } else {
           toast.success('Konto erstellt! Bitte prüfe deine E-Mail für die Bestätigung.')
           setIsLoginMode(true)
@@ -75,7 +83,6 @@ export default function Login() {
         toast.error('E-Mail oder Passwort ist falsch.')
       } else if (msg.includes('already registered')) {
         toast.error('Diese E-Mail ist bereits registriert. Bitte melde dich an.')
-        setIsLoginMode(true)
       } else {
         toast.error('Authentifizierung fehlgeschlagen: ' + msg)
       }
@@ -102,10 +109,11 @@ export default function Login() {
 
   const handleOAuth = async (provider) => {
     try {
+      const dest = getDestination()
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + '/sessions',
+          redirectTo: window.location.origin + dest,
         },
       })
       if (error) throw error

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { MapPin, Users, Calendar, Clock, ArrowRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { extractSessionImage } from '../lib/imageUtils'
 
-// Pixel-accurate badge icons matching Homepage.png
+// Pixel-accurate badge icons for mobile matching Homepage.png
 function CalendarBadgeIcon({ className = "w-4 h-4 text-gray-900" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -91,7 +92,16 @@ const formatTime = (timeStr, scheduledAt) => {
   return '16:15'
 }
 
-// Canonical Figma Showcase Session (matching Homepage.png exactly)
+const normalizeSport = (sport = '') => {
+  const s = sport.toLowerCase()
+  if (s.includes('fuss') || s.includes('foot') || s.includes('soccer')) return 'Soccer'
+  if (s.includes('basket')) return 'Basketball'
+  if (s.includes('skat')) return 'Skating'
+  if (s.includes('bar') || s.includes('karaoke')) return 'Bar'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Canonical Figma Showcase Session for mobile fallback (Homepage.png)
 const CANONICAL_SHOWCASE_SESSION = {
   id: 'showcase-soccer-homepage',
   sport: 'Soccer',
@@ -101,6 +111,7 @@ const CANONICAL_SHOWCASE_SESSION = {
   locationDisplay: 'Hamburg',
   dateDisplay: '12.10.2026',
   illustration: '/figma/sports_soccer.png',
+  spotsDisplay: '5/5',
   isJoined: false,
 }
 
@@ -110,7 +121,11 @@ export default function Sessions() {
 
   const [dbSessions, setDbSessions] = useState([])
   const [joinedIds, setJoinedIds] = useState(new Set())
-  const [loading, setLoading] = useState(true)
+
+  // Desktop search states
+  const [locationInput, setLocationInput] = useState('')
+  const [umkreisInput, setUmkreisInput] = useState('')
+  const [dateInput, setDateInput] = useState('')
 
   // Fetch real sessions from Supabase
   const fetchRealSessions = useCallback(async () => {
@@ -125,8 +140,6 @@ export default function Sessions() {
       }
     } catch (err) {
       console.error('Fehler beim Laden der Sessions:', err)
-    } finally {
-      setLoading(false)
     }
   }, [])
 
@@ -193,139 +206,359 @@ export default function Sessions() {
     }
   }
 
-  // Map DB sessions to clean card format
+  // Map DB sessions
   const mappedDbSessions = dbSessions.map((s) => {
     const isJoined = s.session_participants?.some((p) => p.user_id === user?.id)
+    const normalized = normalizeSport(s.sport)
+    const isBar = normalized === 'Bar'
     const { imageUrl } = extractSessionImage(s.description)
 
     return {
       id: s.id,
       realSessionId: s.id,
       sport: s.sport,
+      sportDisplay: normalized,
       title: s.title,
       timeDisplay: formatTime(s.time, s.scheduled_at),
       locationDisplay: s.location || s.location_name || s.address || 'Hamburg',
+      spotsDisplay: `${s.session_participants?.length || 1}/${s.max_players || 10}`,
       dateDisplay: formatDate(s.date, s.scheduled_at),
+      imageUrl: imageUrl || null,
       illustration: imageUrl || getSportIllustration(s.sport),
+      isBar: isBar && !imageUrl,
       isJoined,
     }
   })
 
-  // If there are real sessions in the database, display them.
-  // Otherwise, display the canonical showcase session from Homepage.png
-  const sessionsToDisplay = mappedDbSessions.length > 0 
+  // Desktop search filter
+  const filteredDesktopSessions = mappedDbSessions.filter((c) => {
+    if (locationInput) {
+      const locText = `${c.locationDisplay} ${c.title}`.toLowerCase()
+      if (!locText.includes(locationInput.toLowerCase().trim())) return false
+    }
+    if (umkreisInput) {
+      const umkText = `${c.locationDisplay} ${c.title}`.toLowerCase()
+      if (!umkText.includes(umkreisInput.toLowerCase().trim())) return false
+    }
+    if (dateInput) {
+      const dText = `${c.dateDisplay}`.toLowerCase()
+      if (!dText.includes(dateInput.toLowerCase().trim())) return false
+    }
+    return true
+  })
+
+  // Mobile list: show real sessions, or canonical showcase session if DB empty
+  const mobileSessions = mappedDbSessions.length > 0 
     ? mappedDbSessions 
     : [CANONICAL_SHOWCASE_SESSION]
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-['Inter',sans-serif] pb-20 sm:pb-28">
-      <div className="max-w-md sm:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6">
+    <div>
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* MOBILE VIEW (Exclusively for Mobile Phones - 1:1 Homepage.png)      */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      <div className="md:hidden min-h-screen bg-white text-gray-900 font-['Inter',sans-serif] pb-20">
+        <div className="max-w-md mx-auto px-4">
 
-        {/* ────────────────────────────────────────────────────────────────── */}
-        {/* 1. TOP ACTION BUTTON ("Session Erstellen")                          */}
-        {/* ────────────────────────────────────────────────────────────────── */}
-        <div className="flex justify-end pt-5 sm:pt-7 mb-4 sm:mb-6">
-          <Link
-            to="/session/erstellen"
-            className="bg-black hover:bg-neutral-800 text-white font-semibold text-xs sm:text-sm px-6 sm:px-7 py-2.5 sm:py-3 rounded-full transition-all shadow-xs inline-flex items-center justify-center active:scale-95"
-          >
-            Session Erstellen
-          </Link>
-        </div>
+          {/* 1. Top Action Button: "Session Erstellen" (Black Pill) */}
+          <div className="flex justify-end pt-5 mb-4">
+            <Link
+              to="/session/erstellen"
+              className="bg-black hover:bg-neutral-800 text-white font-semibold text-xs px-6 py-2.5 rounded-full transition-all shadow-xs inline-flex items-center justify-center active:scale-95"
+            >
+              Session Erstellen
+            </Link>
+          </div>
 
-        {/* ────────────────────────────────────────────────────────────────── */}
-        {/* 2. SECTION HEADING ("Next Match")                                  */}
-        {/* ────────────────────────────────────────────────────────────────── */}
-        <div className="mb-5 sm:mb-7">
-          <h1 className="font-['Zilla_Slab',serif] text-[32px] sm:text-4xl lg:text-5xl font-black text-black tracking-tight select-none">
-            Next Match
-          </h1>
-        </div>
+          {/* 2. Heading: "Next Match" (Zilla Slab) */}
+          <div className="mb-5">
+            <h1 className="font-['Zilla_Slab',serif] text-[32px] font-black text-black tracking-tight select-none">
+              Next Match
+            </h1>
+          </div>
 
-        {/* ────────────────────────────────────────────────────────────────── */}
-        {/* 3. MATCH CARDS (Homepage.png layout)                               */}
-        {/* ────────────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-5 sm:gap-6">
-          {sessionsToDisplay.map((session) => {
-            const isJoined = session.isJoined || joinedIds.has(session.id)
-            const detailUrl = session.realSessionId ? `/session/${session.realSessionId}` : '/session/erstellen'
+          {/* 3. Mobile Match Cards (Horizontal Layout matching Homepage.png) */}
+          <div className="flex flex-col gap-5">
+            {mobileSessions.map((session) => {
+              const isJoined = session.isJoined || joinedIds.has(session.id)
+              const detailUrl = session.realSessionId ? `/session/${session.realSessionId}` : '/session/erstellen'
 
-            return (
-              <div
-                key={session.id}
-                onClick={() => navigate(detailUrl)}
-                className="bg-[#F6F9FE] rounded-[32px] sm:rounded-[36px] shadow-[0_15px_35px_rgba(0,0,0,0.06)] border border-gray-100/70 p-4 sm:p-5 flex items-center justify-between gap-2 sm:gap-4 relative transition-all duration-300 hover:shadow-[0_20px_45px_rgba(0,0,0,0.09)] cursor-pointer group"
-              >
-                {/* Left: Sport Illustration */}
-                <div className="w-[125px] sm:w-[145px] h-[130px] sm:h-[145px] flex items-center justify-center shrink-0">
-                  <img
-                    src={session.illustration || getSportIllustration(session.sport)}
-                    alt={session.title || session.sport || 'Session'}
-                    className="w-full h-full object-contain mix-blend-multiply select-none group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                </div>
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => navigate(detailUrl)}
+                  className="bg-[#F6F9FE] rounded-[32px] shadow-[0_15px_35px_rgba(0,0,0,0.06)] border border-gray-100/70 p-4 flex items-center justify-between gap-2 relative transition-all duration-300 hover:shadow-[0_20px_45px_rgba(0,0,0,0.09)] cursor-pointer group"
+                >
+                  {/* Left: Sport Illustration */}
+                  <div className="w-[125px] h-[130px] flex items-center justify-center shrink-0">
+                    <img
+                      src={session.illustration || getSportIllustration(session.sport)}
+                      alt={session.title || session.sport || 'Session'}
+                      className="w-full h-full object-contain mix-blend-multiply select-none group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
 
-                {/* Right: Info Badges & Join Action */}
-                <div className="flex-1 flex flex-col justify-between py-1 gap-4">
-                  {/* Row 1: Date & Location */}
-                  <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                    {/* Date Badge */}
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <div className="w-8 h-8 rounded-[10px] bg-white border border-[#E2E8F0] shadow-2xs flex items-center justify-center shrink-0">
-                        <CalendarBadgeIcon className="w-4 h-4 text-gray-900" />
+                  {/* Right: Info Badges & Join Action */}
+                  <div className="flex-1 flex flex-col justify-between py-1 gap-4">
+                    {/* Row 1: Date & Location */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {/* Date Badge */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-8 h-8 rounded-[10px] bg-white border border-[#E2E8F0] shadow-2xs flex items-center justify-center shrink-0">
+                          <CalendarBadgeIcon className="w-4 h-4 text-gray-900" />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">
+                          {session.dateDisplay}
+                        </span>
                       </div>
-                      <span className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">
-                        {session.dateDisplay}
-                      </span>
+
+                      {/* Location Badge */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-8 h-8 rounded-[10px] bg-white border border-[#E2E8F0] shadow-2xs flex items-center justify-center shrink-0">
+                          <LocationBadgeIcon className="w-4 h-4 text-gray-900" />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900 truncate max-w-[85px]">
+                          {session.locationDisplay}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Location Badge */}
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <div className="w-8 h-8 rounded-[10px] bg-white border border-[#E2E8F0] shadow-2xs flex items-center justify-center shrink-0">
-                        <LocationBadgeIcon className="w-4 h-4 text-gray-900" />
+                    {/* Row 2: Time & Join Button */}
+                    <div className="flex items-center justify-between gap-2">
+                      {/* Time Badge */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-8 h-8 rounded-[10px] bg-white border border-[#E2E8F0] shadow-2xs flex items-center justify-center shrink-0">
+                          <ClockBadgeIcon className="w-4 h-4 text-gray-900" />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">
+                          {session.timeDisplay}
+                        </span>
                       </div>
-                      <span className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[85px] sm:max-w-[120px]">
-                        {session.locationDisplay}
-                      </span>
+
+                      {/* Join Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleJoin(session)
+                        }}
+                        className={`px-7 py-2 rounded-full font-semibold text-xs transition-all shadow-xs shrink-0 ${
+                          isJoined
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-[#060016] hover:bg-black text-white active:scale-95'
+                        }`}
+                      >
+                        {isJoined ? 'Beigetreten' : 'Join'}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Row 2: Time & Join Button */}
-                  <div className="flex items-center justify-between gap-2">
-                    {/* Time Badge */}
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <div className="w-8 h-8 rounded-[10px] bg-white border border-[#E2E8F0] shadow-2xs flex items-center justify-center shrink-0">
-                        <ClockBadgeIcon className="w-4 h-4 text-gray-900" />
-                      </div>
-                      <span className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">
-                        {session.timeDisplay}
-                      </span>
+                </div>
+              )
+            })}
+          </div>
+
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* DESKTOP VIEW (Exclusively for Desktop/Tablet - Original Layout)     */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      <div className="hidden md:block min-h-screen bg-[#FDFDFE] text-gray-900 font-['Inter',sans-serif] pb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+
+          {/* 1. TOP FIGMA BANNER ("Find Your Community by joining Session") */}
+          <div className="w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm mb-6 select-none">
+            <img 
+              src="/figma/sessions_community_banner.png" 
+              alt="Find Your Community by joining Session" 
+              className="w-full h-auto object-cover" 
+            />
+          </div>
+
+          {/* 2. "SESSION ERSTELLEN" ACTION BUTTON (Black Pill with Blue Arrow) */}
+          <div className="flex justify-end mb-6">
+            <Link
+              to="/session/erstellen"
+              className="inline-flex items-center gap-3 bg-[#0B0D17] hover:bg-black text-white text-sm font-semibold pl-6 pr-2 py-2 rounded-full shadow-sm hover:shadow-md transition-all group"
+            >
+              <span>Session erstellen</span>
+              <div className="w-8 h-8 rounded-full bg-[#2F80ED] flex items-center justify-center text-white group-hover:translate-x-0.5 transition-transform">
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+          </div>
+
+          {/* 3. SEARCH & FILTER BAR */}
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 shadow-sm p-2 sm:p-2.5 mb-12">
+            <div className="grid grid-cols-12 gap-2 items-center">
+              
+              {/* Location input */}
+              <div className="col-span-4 flex items-center gap-3 px-4 py-2 border-r border-gray-100">
+                <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Location"
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
+                  className="w-full text-sm text-gray-800 placeholder-gray-400 bg-transparent focus:outline-none"
+                />
+              </div>
+
+              {/* Umkreis input */}
+              <div className="col-span-3 flex items-center gap-3 px-4 py-2 border-r border-gray-100">
+                <Users className="w-5 h-5 text-gray-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Umkreis"
+                  value={umkreisInput}
+                  onChange={(e) => setUmkreisInput(e.target.value)}
+                  className="w-full text-sm text-gray-800 placeholder-gray-400 bg-transparent focus:outline-none"
+                />
+              </div>
+
+              {/* Date input */}
+              <div className="col-span-3 flex items-center gap-3 px-4 py-2 border-r border-gray-100">
+                <Calendar className="w-5 h-5 text-gray-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Date"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className="w-full text-sm text-gray-800 placeholder-gray-400 bg-transparent focus:outline-none"
+                />
+              </div>
+
+              {/* Search button */}
+              <div className="col-span-2">
+                <button
+                  type="button"
+                  onClick={fetchRealSessions}
+                  className="w-full h-12 md:h-14 bg-[#2F80ED] hover:bg-[#2563EB] text-white font-medium text-base rounded-xl md:rounded-2xl transition-colors shadow-xs flex items-center justify-center"
+                >
+                  Search
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          {/* 4. SESSIONS CARDS (4-Column Grid for Desktop) */}
+          {filteredDesktopSessions.length === 0 ? (
+            <div className="bg-white rounded-[32px] border border-gray-100/90 shadow-sm p-10 sm:p-14 text-center max-w-lg mx-auto flex flex-col items-center">
+              <div className="w-20 h-20 bg-blue-50 text-[#2F80ED] rounded-full flex items-center justify-center text-3xl mb-4 font-bold">
+                ⚽
+              </div>
+              <h3 className="text-xl font-bold text-gray-950 mb-2">Keine Sessions gefunden</h3>
+              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                {locationInput || umkreisInput || dateInput
+                  ? 'Für deine Suchkriterien wurden keine Sessions gefunden.'
+                  : 'Es sind noch keine aktiven Sessions vorhanden. Erstelle jetzt die erste Session!'}
+              </p>
+              <Link
+                to="/session/erstellen"
+                className="inline-flex items-center gap-2 bg-[#0B0D17] hover:bg-black text-white text-sm font-semibold px-6 py-3 rounded-full transition-all shadow-xs"
+              >
+                <span>Session erstellen</span>
+                <ArrowRight className="w-4 h-4 text-[#2F80ED]" />
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+              {filteredDesktopSessions.map((s) => {
+                const isJoined = s.isJoined || joinedIds.has(s.id)
+                const detailUrl = s.realSessionId ? `/session/${s.realSessionId}` : '/session/erstellen'
+
+                return (
+                  <div
+                    key={s.id}
+                    className="bg-white rounded-[32px] sm:rounded-[36px] border border-gray-100/90 shadow-[0_10px_35px_rgba(0,0,0,0.05)] hover:shadow-xl transition-all duration-300 p-6 sm:p-7 flex flex-col items-center justify-between group"
+                  >
+                    {/* Top Image area */}
+                    <Link
+                      to={detailUrl}
+                      className="w-full h-44 sm:h-48 flex items-center justify-center mb-3 select-none"
+                    >
+                      {s.imageUrl ? (
+                        <div className="w-full h-full overflow-hidden rounded-2xl flex items-center justify-center bg-gray-50 border border-gray-100">
+                          <img
+                            src={s.imageUrl}
+                            alt={s.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                      ) : s.isBar ? (
+                        <div className="w-full h-full overflow-hidden rounded-t-[32px] rounded-b-xl flex items-center justify-center">
+                          <img
+                            src="/figma/session_bar_photo.png"
+                            alt={s.title}
+                            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src={s.illustration || getSportIllustration(s.sport)}
+                          alt={s.title}
+                          className="max-h-40 sm:max-h-44 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                        />
+                      )}
+                    </Link>
+
+                    {/* Card Title & Subtitle */}
+                    <div className="text-center mb-2 w-full">
+                      <Link to={detailUrl}>
+                        <h3 className="text-xl sm:text-2xl font-bold text-gray-950 tracking-tight hover:text-[#2F80ED] transition-colors">
+                          {s.sportDisplay}
+                        </h3>
+                      </Link>
+                      <p className="text-xs sm:text-sm font-normal text-gray-700 mt-1 line-clamp-1 px-1">
+                        {s.title}
+                      </p>
                     </div>
 
-                    {/* Join Button (matches Homepage.png pill) */}
+                    {/* Details (2x2 grid with Clock, MapPin, Users, Calendar) */}
+                    <div className="w-full grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-medium text-gray-700 mt-4 mb-6 px-1">
+                      <div className="flex items-center gap-1.5" title="Uhrzeit">
+                        <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span>{s.timeDisplay}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5" title="Ort">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="truncate">{s.locationDisplay}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5" title="Teilnehmer:innen">
+                        <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span>{s.spotsDisplay}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5" title="Datum">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span>{s.dateDisplay}</span>
+                      </div>
+                    </div>
+
+                    {/* Black Pill Action Button: "Join" */}
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleJoin(session)
-                      }}
-                      className={`px-7 sm:px-8 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all shadow-xs shrink-0 ${
+                      onClick={() => handleJoin(s)}
+                      className={`w-full py-2.5 rounded-full font-semibold text-sm transition-all shadow-xs ${
                         isJoined
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          : 'bg-[#060016] hover:bg-black text-white active:scale-95'
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-[#0B0D17] hover:bg-black text-white'
                       }`}
                     >
                       {isJoined ? 'Beigetreten' : 'Join'}
                     </button>
                   </div>
-                </div>
+                )
+              })}
+            </div>
+          )}
 
-              </div>
-            )
-          })}
         </div>
-
       </div>
     </div>
   )
