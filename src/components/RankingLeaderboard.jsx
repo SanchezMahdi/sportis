@@ -181,7 +181,8 @@ export default function RankingLeaderboard({ currentUserId, sport = null }) {
     if (sortBy === 'mvp') {
       filtered.sort((a, b) => (b.mvp_count || 0) - (a.mvp_count || 0))
     } else if (sortBy === 'reliability') {
-      filtered.sort((a, b) => (b.reliability_score || 0) - (a.reliability_score || 0))
+      const getRel = u => (u.reliability_score === 50 || u.reliability_score == null ? 100 : u.reliability_score)
+      filtered.sort((a, b) => getRel(b) - getRel(a))
     }
     // sortBy === 'score' ist bereits von der API sortiert
 

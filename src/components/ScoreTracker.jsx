@@ -89,7 +89,7 @@ export default function ScoreTracker({ userId }) {
     mvp_count: 0,
     high_fives_received: 0,
     sessions_played: 0,
-    reliability_score: 50,
+    reliability_score: 100,
     avg_rating: 0,
     win_loss_ratio: 0,
   })
@@ -110,7 +110,7 @@ export default function ScoreTracker({ userId }) {
           mvp_count: 0,
           high_fives_received: 0,
           sessions_played: 0,
-          reliability_score: 50,
+          reliability_score: 100,
           avg_rating: 0,
           win_loss_ratio: 0,
         })
@@ -137,21 +137,20 @@ export default function ScoreTracker({ userId }) {
             mvp_count: 0,
             high_fives_received: 0,
             sessions_played: 0,
-            reliability_score: 50,
+            reliability_score: 100,
             avg_rating: 0,
             win_loss_ratio: 0,
           })
         } else {
-          setStats(userData || {
+          const userRel = (userData?.reliability_score === 50 || userData?.reliability_score == null)
+            ? 100
+            : userData.reliability_score
+          setStats({
+            ...(userData || {}),
             id: userId,
-            full_name: 'Nutzer',
-            name: 'Nutzer',
-            mvp_count: 0,
-            high_fives_received: 0,
-            sessions_played: 0,
-            reliability_score: 50,
-            avg_rating: 0,
-            win_loss_ratio: 0,
+            full_name: userData?.full_name || 'Nutzer',
+            name: userData?.name || 'Nutzer',
+            reliability_score: userRel,
           })
         }
 
@@ -191,7 +190,7 @@ export default function ScoreTracker({ userId }) {
           mvp_count: 0,
           high_fives_received: 0,
           sessions_played: 0,
-          reliability_score: 50,
+          reliability_score: 100,
           avg_rating: 0,
           win_loss_ratio: 0,
         })
@@ -218,6 +217,10 @@ export default function ScoreTracker({ userId }) {
       </div>
     )
   }
+
+  const effectiveReliability = stats?.reliability_score === 50 || stats?.reliability_score == null
+    ? 100
+    : Math.round(stats.reliability_score)
 
   return (
     <div className="space-y-6">
@@ -262,7 +265,7 @@ export default function ScoreTracker({ userId }) {
         <StatCard
           icon={Zap}
           label="Zuverlässigkeit"
-          value={`${Math.round(stats?.reliability_score || 50)}%`}
+          value={`${effectiveReliability}%`}
           color="text-green-500"
         />
         <StatCard
@@ -294,7 +297,7 @@ export default function ScoreTracker({ userId }) {
             { icon: '🏆', label: 'Erste Session', unlocked: stats.sessions_played >= 1 },
             { icon: '⭐', label: '5 MVPs', unlocked: stats.mvp_count >= 5 },
             { icon: '🙌', label: '10 High Fives', unlocked: stats.high_fives_received >= 10 },
-            { icon: '💪', label: '90% Zuverlässigkeit', unlocked: stats.reliability_score >= 90 },
+            { icon: '💪', label: '90% Zuverlässigkeit', unlocked: effectiveReliability >= 90 },
             { icon: '📈', label: '50 Sessions', unlocked: stats.sessions_played >= 50 },
             { icon: '👑', label: 'Platin Tier', unlocked: stats.avg_rating >= 4.5 },
           ].map((badge, idx) => (

@@ -19,8 +19,10 @@ export function calculateRankingScore(user) {
   if (!user) return 0
 
   const mvpScore = (user.mvp_count || 0) * 25
-  const highFiveScore = (user.high_fives_received || 0) * 15
-  const reliabilityScore = user.reliability_score || 50
+  // Standardmäßig 100% Zuverlässigkeit ab heute (50 war der alte Platzhalter-Default)
+  const reliabilityScore = (user.reliability_score === 50 || user.reliability_score === undefined || user.reliability_score === null)
+    ? 100
+    : user.reliability_score
   const volumeScore = Math.min(user.sessions_played || 0, 100) * 1 // capped at 100
   const ratingScore = (user.avg_rating || 0) * 20
 

@@ -1404,20 +1404,25 @@ export default function SessionDetail() {
                     {session.creator?.city || session.location}
                   </p>
                 )}
-                {session.creator?.reliability_score !== undefined && (
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
-                      <div
-                        className={`h-1.5 rounded-full ${
-                          session.creator.reliability_score >= 80 ? 'bg-[#22C55E]' :
-                          session.creator.reliability_score >= 50 ? 'bg-amber-400' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${Math.min(100, session.creator.reliability_score)}%` }}
-                      />
+                {session.creator && (() => {
+                  const creatorRel = (session.creator.reliability_score === 50 || session.creator.reliability_score == null)
+                    ? 100
+                    : Math.round(session.creator.reliability_score)
+                  return (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <div className="flex-1 bg-gray-100 rounded-full h-1.5 max-w-[80px]">
+                        <div
+                          className={`h-1.5 rounded-full ${
+                            creatorRel >= 80 ? 'bg-[#22C55E]' :
+                            creatorRel >= 50 ? 'bg-amber-400' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(100, creatorRel)}%` }}
+                        />
+                      </div>
+                      <span className="text-gray-500 text-xs font-medium">{creatorRel}% Zuverlässigkeit</span>
                     </div>
-                    <span className="text-gray-500 text-xs font-medium">{session.creator.reliability_score}% Zuverlässigkeit</span>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             </div>
           </div>
@@ -1438,9 +1443,9 @@ export default function SessionDetail() {
             ) : (
               <div className="flex flex-col gap-2.5">
                 {participants.map((p) => {
-                  const userReliability = p.user?.reliability_score !== undefined
-                    ? Math.round(p.user.reliability_score)
-                    : 100
+                  const userReliability = (p.user?.reliability_score === 50 || p.user?.reliability_score == null)
+                    ? 100
+                    : Math.round(p.user.reliability_score)
                   const isCurrentUserCreatorOrHost = p.user_id === session.creator_id || p.user_id === session.host_id
                   const attendance = attendanceRatings[p.user_id]
 
