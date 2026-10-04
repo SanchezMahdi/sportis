@@ -131,7 +131,7 @@ export default function FigmaFooter() {
                 <Instagram className="w-4 h-4" />
               </a>
               <a 
-                href="https://www.tiktok.com/@sportis10?_r=1&_t=ZG-9AHI1EC0ggC" 
+                href="https://www.tiktok.com/@sportis10?_r=1&_t=ZG-9AHOqXW9V0C" 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-600 hover:text-black hover:border-gray-900 transition-colors"
@@ -190,7 +190,7 @@ export default function FigmaFooter() {
                 <Instagram className="w-4 h-4" />
               </a>
               <a 
-                href="https://www.tiktok.com/@sportis10?_r=1&_t=ZG-9AHI1EC0ggC" 
+                href="https://www.tiktok.com/@sportis10?_r=1&_t=ZG-9AHOqXW9V0C" 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-black transition-colors"
