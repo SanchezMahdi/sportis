@@ -174,6 +174,8 @@ export default function SessionDetail() {
   const [pendingRequests, setPendingRequests] = useState([])
   const [equipmentItems, setEquipmentItems] = useState([])
   const [plusOne, setPlusOne] = useState(false)
+  const [attendanceRatings, setAttendanceRatings] = useState({})
+  const [ratingLoading, setRatingLoading] = useState({})
 
   const chatEndRef = useRef(null)
   const chatInputRef = useRef(null)
@@ -279,12 +281,31 @@ export default function SessionDetail() {
     try {
       const { data, error } = await supabase
         .from('session_participants')
-        .select('*, user:users(id, name, city, avatar_url)')
+        .select('*, user:users(id, name, city, avatar_url, reliability_score)')
         .eq('session_id', id)
         .order('joined_at', { ascending: true })
 
       if (error) throw error
       setParticipants(data || [])
+
+      // Load existing attendance evaluations from reviews
+      try {
+        const { data: revs } = await supabase
+          .from('reviews')
+          .select('to_user_id, rating, notes')
+          .eq('session_id', id)
+        if (revs && revs.length > 0) {
+          const map = {}
+          revs.forEach((r) => {
+            if (r.rating !== null || r.notes) {
+              map[r.to_user_id] = { rating: r.rating, notes: r.notes }
+            }
+          })
+          setAttendanceRatings(map)
+        }
+      } catch (revErr) {
+        console.warn('Bewertungen konnten nicht geladen werden:', revErr)
+      }
     } catch (err) {
       console.error('Teilnehmer konnten nicht geladen werden:', err)
     }
@@ -459,6 +480,108 @@ export default function SessionDetail() {
       await fetchJoinRequests()
     } catch (err) {
       toast.error(err.message || 'Fehler beim Ablehnen.')
+    }
+  }
+
+  const handleRateAttendance = async (targetUserId, targetUserName, statusKey) => {
+    if (!user) {
+      toast.error('Bitte melde dich an.')
+      navigate('/login')
+      return
+    }
+
+    const STATUS_MAP = {
+      puenktlich: { rating: 100, label: 'Pünktlich', notes: 'pünktlich' },
+      zupaet: { rating: 70, label: 'Zu spät', notes: 'zu spät' },
+      nicht_erschienen: { rating: 0, label: 'Nicht erschienen', notes: 'nicht erschienen' },
+    }
+
+    const config = STATUS_MAP[statusKey]
+    if (!config) return
+
+    setRatingLoading((prev) => ({ ...prev, [targetUserId]: true }))
+
+    // Optimistic UI update
+    setAttendanceRatings((prev) => ({
+      ...prev,
+      [targetUserId]: { rating: config.rating, notes: config.notes },
+    }))
+
+    try {
+      // 1. Speichere Review / Bewertung in Supabase reviews Tabelle
+      const reviewPayload = {
+        session_id: id,
+        from_user_id: user.id,
+        to_user_id: targetUserId,
+        rating: config.rating,
+        notes: config.notes,
+        is_mvp: false,
+        high_five: false,
+      }
+
+      await supabase
+        .from('reviews')
+        .upsert(reviewPayload, { onConflict: 'session_id,from_user_id,to_user_id' })
+
+      // 2. Aktualisiere Anwesenheitsstatus in session_participants
+      try {
+        await supabase
+          .from('session_participants')
+          .update({ attended: statusKey !== 'nicht_erschienen' })
+          .eq('session_id', id)
+          .eq('user_id', targetUserId)
+      } catch {}
+
+      // 3. Berechne neue Gesamt-Zuverlässigkeit für den Nutzer
+      let newScore = config.rating
+      try {
+        const { data: allReviews } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('to_user_id', targetUserId)
+          .not('rating', 'is', null)
+
+        if (allReviews && allReviews.length > 0) {
+          const sum = allReviews.reduce((acc, curr) => {
+            const raw = Number(curr.rating) || 0
+            const normalized = raw <= 5 ? (raw / 5) * 100 : raw
+            return acc + normalized
+          }, 0)
+          newScore = Math.round(sum / allReviews.length)
+        }
+      } catch {}
+
+      // 4. Update Zuverlässigkeit im Nutzerprofil
+      try {
+        await supabase
+          .from('users')
+          .update({ reliability_score: newScore })
+          .eq('id', targetUserId)
+      } catch {}
+
+      // 5. Update lokale Teilnehmer-Liste
+      setParticipants((prev) =>
+        prev.map((p) => {
+          if (p.user_id === targetUserId) {
+            return {
+              ...p,
+              user: {
+                ...p.user,
+                reliability_score: newScore,
+              },
+              attended: statusKey !== 'nicht_erschienen',
+            }
+          }
+          return p
+        })
+      )
+
+      toast.success(`${targetUserName || 'Spieler'}: Als "${config.label}" bewertet (${newScore}% Zuverlässigkeit)`)
+    } catch (err) {
+      console.error('Fehler bei der Anwesenheitsbewertung:', err)
+      toast.error('Bewertung konnte nicht gespeichert werden.')
+    } finally {
+      setRatingLoading((prev) => ({ ...prev, [targetUserId]: false }))
     }
   }
 
@@ -1314,48 +1437,168 @@ export default function SessionDetail() {
               </p>
             ) : (
               <div className="flex flex-col gap-2.5">
-                {participants.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50/70 border border-gray-100">
-                    <Avatar name={p.user?.name} avatarUrl={p.user?.avatar_url} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-950 text-sm font-semibold truncate">
-                        {p.user?.name || 'Teilnehmer'}
-                        {(p.user_id === session.creator_id || p.user_id === session.host_id) && (
-                          <span className="ml-2 text-[#2F80ED] text-xs font-bold">(Ersteller:in)</span>
+                {participants.map((p) => {
+                  const userReliability = p.user?.reliability_score !== undefined
+                    ? Math.round(p.user.reliability_score)
+                    : 100
+                  const isCurrentUserCreatorOrHost = p.user_id === session.creator_id || p.user_id === session.host_id
+                  const attendance = attendanceRatings[p.user_id]
+
+                  return (
+                    <div key={p.id} className="p-3 rounded-2xl bg-gray-50/70 border border-gray-100 flex flex-col gap-2">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={p.user?.name} avatarUrl={p.user?.avatar_url} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-gray-950 text-sm font-semibold truncate">
+                              {p.user?.name || 'Teilnehmer'}
+                            </p>
+                            {isCurrentUserCreatorOrHost && (
+                              <span className="text-[#2F80ED] text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-100">
+                                Ersteller:in
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Subtitle: City, Waitlist & Reliability Score */}
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {p.waitlist ? (
+                              <span className="text-amber-600 font-semibold text-xs">Warteliste</span>
+                            ) : p.user?.city ? (
+                              <span className="text-gray-500 text-xs">{p.user.city}</span>
+                            ) : null}
+                            <span className="text-gray-300 text-xs">•</span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-700">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  userReliability >= 80
+                                    ? 'bg-emerald-500'
+                                    : userReliability >= 50
+                                    ? 'bg-amber-400'
+                                    : 'bg-red-500'
+                                }`}
+                              />
+                              {userReliability}% Zuverlässig
+                            </span>
+                            {attendance?.notes && !isCreator && (
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                  attendance.notes === 'pünktlich'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : attendance.notes === 'zu spät'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {attendance.notes === 'pünktlich'
+                                  ? '🟢 Pünktlich'
+                                  : attendance.notes === 'zu spät'
+                                  ? '🟡 Zu spät'
+                                  : '🔴 Nicht erschienen'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Top-Right Action: Checkmark / Remove / Report */}
+                        {p.user_id === user?.id ? (
+                          <Check className="w-4 h-4 text-[#22C55E] shrink-0" />
+                        ) : user && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isCreator && !isCurrentUserCreatorOrHost && (
+                              <button
+                                onClick={() => handleRemoveParticipant(p.user_id)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                title="Entfernen"
+                              >
+                                <UserX className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { setReportTarget(p.user); setReportReason('') }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+                              title="Melden"
+                            >
+                              <Flag className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         )}
-                      </p>
-                      <p className="text-xs">
-                        {p.waitlist
-                          ? <span className="text-amber-600 font-medium">Warteliste</span>
-                          : p.user?.city
-                          ? <span className="text-gray-500">{p.user.city}</span>
-                          : null}
-                      </p>
-                    </div>
-                    {p.user_id === user?.id ? (
-                      <Check className="w-4 h-4 text-[#22C55E] shrink-0" />
-                    ) : user && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        {isCreator && p.user_id !== session.creator_id && p.user_id !== session.host_id && (
-                          <button
-                            onClick={() => handleRemoveParticipant(p.user_id)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            title="Entfernen"
-                          >
-                            <UserX className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setReportTarget(p.user); setReportReason('') }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-                          title="Melden"
-                        >
-                          <Flag className="w-3.5 h-3.5" />
-                        </button>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Creator Attendance Evaluation Toolbar */}
+                      {isCreator && !isCurrentUserCreatorOrHost && (
+                        <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                              Anwesenheit:
+                            </span>
+                            {attendance?.notes ? (
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                  attendance.notes === 'pünktlich'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : attendance.notes === 'zu spät'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {attendance.notes === 'pünktlich'
+                                  ? '🟢 Pünktlich'
+                                  : attendance.notes === 'zu spät'
+                                  ? '🟡 Zu spät'
+                                  : '🔴 Nicht da'}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 italic">Noch offen</span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <button
+                              type="button"
+                              disabled={ratingLoading[p.user_id]}
+                              onClick={() => handleRateAttendance(p.user_id, p.user?.name, 'puenktlich')}
+                              className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                                attendance?.notes === 'pünktlich'
+                                  ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              }`}
+                              title="Pünktlich (100% Zuverlässigkeit)"
+                            >
+                              🟢 Pünktlich
+                            </button>
+                            <button
+                              type="button"
+                              disabled={ratingLoading[p.user_id]}
+                              onClick={() => handleRateAttendance(p.user_id, p.user?.name, 'zupaet')}
+                              className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                                attendance?.notes === 'zu spät'
+                                  ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-300'
+                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                              title="Zu spät (70% Zuverlässigkeit)"
+                            >
+                              🟡 Zu spät
+                            </button>
+                            <button
+                              type="button"
+                              disabled={ratingLoading[p.user_id]}
+                              onClick={() => handleRateAttendance(p.user_id, p.user?.name, 'nicht_erschienen')}
+                              className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                                attendance?.notes === 'nicht erschienen'
+                                  ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-300'
+                                  : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
+                              }`}
+                              title="Nicht erschienen (0% Zuverlässigkeit)"
+                            >
+                              🔴 Nicht da
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
