@@ -98,6 +98,13 @@ export default function Landing() {
   const [showMobilePassword, setShowMobilePassword] = useState(false)
   const [mobileLoading, setMobileLoading] = useState(false)
 
+  // When a user is logged in, automatically redirect them to /sessions
+  useEffect(() => {
+    if (user) {
+      navigate('/sessions', { replace: true })
+    }
+  }, [user, navigate])
+
   const handleMobileLogin = async (e) => {
     e.preventDefault()
     if (!mobileEmail) {
@@ -128,11 +135,10 @@ export default function Landing() {
 
   const handleOAuth = async (provider) => {
     try {
-      const isMobile = window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + (isMobile ? '/sessions' : '/profil'),
+          redirectTo: window.location.origin + '/sessions',
         },
       })
       if (error) throw error

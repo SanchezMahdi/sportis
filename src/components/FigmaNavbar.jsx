@@ -41,7 +41,7 @@ export default function FigmaNavbar() {
         <div className="flex items-center justify-between h-20">
           
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center group select-none">
+          <Link to={user ? "/sessions" : "/"} className="flex items-center group select-none">
             <img 
               src="/figma/brand_sportis.png" 
               alt="Sportis" 
