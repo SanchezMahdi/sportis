@@ -65,27 +65,7 @@ export default function IPhoneHome({ onNavigateCreate, onSelectSession }) {
     setJoinedSessions(next)
   }
 
-  // Canonical cards from Figma screenshot
-  const figmaCards = [
-    {
-      id: 'figma-basketball',
-      sport: 'Basketball',
-      title: 'Playing Basketball BWL',
-      time: '17:00',
-      location: 'Hamburg',
-      date: '12.02.2026',
-      illustration: '/iphone/sports_basketball.png',
-    },
-    {
-      id: 'figma-football',
-      sport: 'Football',
-      title: 'Playing soccer This Weekend',
-      time: '17:00',
-      location: 'Hamburg',
-      date: '12.02.2026',
-      illustration: '/iphone/sports_soccer.png',
-    },
-  ]
+
 
   return (
     <div className="space-y-6 pb-20">
@@ -172,48 +152,21 @@ export default function IPhoneHome({ onNavigateCreate, onSelectSession }) {
       </div>
 
       {/* ────────────────────────────────────────────────────────────────── */}
-      {/* 4. Match Cards List (Figma Exact)                                  */}
-      {/* ────────────────────────────────────────────────────────────────── */}
+      {/* 4. Match Cards List (Real Sessions) */}
       <div className="mx-4 space-y-4">
-        {/* Basketball Card Exact */}
-        <div className="relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-gray-100/90 group">
-          <img
-            src="/iphone/figma_bb_card.png"
-            alt="Playing Basketball BWL"
-            className="w-full aspect-[378/165] object-cover"
-          />
-          <button
-            type="button"
-            onClick={(e) => handleToggleJoin('figma-basketball', e)}
-            className="absolute right-[3.5%] bottom-[4.5%] w-[27%] h-[24%] flex items-center justify-center"
-          >
-            {joinedSessions.has('figma-basketball') && (
-              <div className="w-full h-full bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                Joined ✓
-              </div>
-            )}
-          </button>
-        </div>
-
-        {/* Football Card Exact */}
-        <div className="relative rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-gray-100/90 group">
-          <img
-            src="/iphone/figma_fb_card.png"
-            alt="Playing soccer This Weekend"
-            className="w-full aspect-[379/145] object-cover"
-          />
-          <button
-            type="button"
-            onClick={(e) => handleToggleJoin('figma-football', e)}
-            className="absolute right-[3.5%] bottom-[5.5%] w-[28%] h-[27%] flex items-center justify-center"
-          >
-            {joinedSessions.has('figma-football') && (
-              <div className="w-full h-full bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                Joined ✓
-              </div>
-            )}
-          </button>
-        </div>
+        {dbSessions.length === 0 && (
+          <div className="bg-white rounded-3xl p-8 border border-gray-100 text-center shadow-xs">
+            <p className="text-gray-900 font-bold text-sm mb-1">Noch keine Sessions vorhanden</p>
+            <p className="text-gray-500 text-xs mb-4">Erstelle jetzt die erste Session für deine Community!</p>
+            <button
+              type="button"
+              onClick={onNavigateCreate}
+              className="px-5 py-2 bg-black text-white text-xs font-semibold rounded-full shadow-xs active:scale-95"
+            >
+              Session erstellen
+            </button>
+          </div>
+        )}
 
         {/* Real Supabase Database sessions */}
         {dbSessions.map((s) => {

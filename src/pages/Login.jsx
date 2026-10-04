@@ -11,7 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const { user, signIn, signUp } = useAuth()
+  const { user, signIn, signUp, devLogin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -21,10 +21,16 @@ export default function Login() {
   }
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('autologin') === '1') {
+      devLogin?.()
+      navigate('/sessions', { replace: true })
+      return
+    }
     if (user) {
       navigate(getDestination(), { replace: true })
     }
-  }, [user, navigate])
+  }, [user, location.search, devLogin, navigate])
 
   const [formData, setFormData] = useState({
     username: '',
@@ -280,7 +286,19 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Switch Mode Prompt */}
+          {/* Quick Login for Testing in Simulator / Dev */}
+          <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                devLogin?.()
+                navigate('/sessions', { replace: true })
+              }}
+              className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-2xs"
+            >
+              <span>⚡ 1-Klick Schnell-Login (Simulator)</span>
+            </button>
+          </div>
           <p className="text-center text-xs sm:text-sm text-gray-600 mt-6">
             {isLoginMode ? "Don't you have an account? " : 'Already have an account? '}
             <button

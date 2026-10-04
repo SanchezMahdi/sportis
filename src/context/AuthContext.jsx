@@ -10,18 +10,34 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const savedDevUser = typeof window !== 'undefined' ? localStorage.getItem('sportis_dev_user') : null
+    if (savedDevUser) {
+      try {
+        const u = JSON.parse(savedDevUser)
+        setUser(u)
+        setLoading(false)
+      } catch {}
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+      if (session?.user) {
+        setSession(session)
+        setUser(session.user)
+      }
       setLoading(false)
     })
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
+        if (session?.user) {
+          setSession(session)
+          setUser(session.user)
+        } else if (!localStorage.getItem('sportis_dev_user')) {
+          setSession(null)
+          setUser(null)
+        }
         setLoading(false)
       }
     )
@@ -79,9 +95,24 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  const devLogin = (customName = 'Faris') => {
+    const devUser = {
+      id: 'ed38922d-61de-4b49-932d-ef8a1e919002',
+      email: 'farisdababneh18@gmail.com',
+      user_metadata: { name: customName },
+    }
+    localStorage.setItem('sportis_dev_user', JSON.stringify(devUser))
+    setUser(devUser)
+    return devUser
+  }
+
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    localStorage.removeItem('sportis_dev_user')
+    try {
+      await supabase.auth.signOut()
+    } catch {}
+    setUser(null)
+    setSession(null)
   }
 
   const updateProfile = async (updates) => {
@@ -155,6 +186,7 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
+    devLogin,
     updateProfile,
     refreshUser,
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Smartphone, Monitor, ChevronRight } from 'lucide-react'
 import IPhoneStatusBar from './IPhoneStatusBar'
 import IPhoneHeader from './IPhoneHeader'
@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext'
 
 export default function IPhoneApp({ initialTab = 'home', initialView = null }) {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   // Navigation state
   const [activeTab, setActiveTab] = useState(initialTab)
@@ -145,7 +146,7 @@ export default function IPhoneApp({ initialTab = 'home', initialView = null }) {
               {!currentView && activeTab === 'home' && (
                 <IPhoneHome
                   onNavigateCreate={() => setCurrentView('create_session')}
-                  onSelectSession={(id) => {}}
+                  onSelectSession={(id) => navigate(`/session/${id}`)}
                 />
               )}
 

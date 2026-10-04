@@ -154,7 +154,7 @@ export default function SessionDetail() {
     return null
   }
 
-  if (id === 'football' || id === 'basketball' || id === 'swimming' || id === 'figma' || id === 'detail') {
+  if (id === 'football' || id === 'basketball' || id === 'swimming' || id === 'figma' || id === 'detail' || id === 'showcase-soccer-homepage') {
     return <FigmaSessionDetail />
   }
 
