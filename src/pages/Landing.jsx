@@ -73,16 +73,16 @@ const roadmapPhotos = [
 
 // Die 10 echten Sportis-Fotos aus dem Bilder-Ordner für die interaktive Bogengalerie
 const galleryPhotos = [
+  { id: 7, src: '/gallery/photo_10_cali.jpg', alt: 'Cali Park Altona Meetup' },
+  { id: 8, src: '/gallery/photo_6_pitch_banner.jpg', alt: 'Kunstrasenplatz mit Willkommen-Banner' },
+  { id: 9, src: '/gallery/picture3_campus_match.jpg', alt: 'Sportis Campus Football Game' },
+  { id: 10, src: '/gallery/photo_3_graffiti.jpg', alt: 'Match vor Graffiti-Container' },
   { id: 1, src: '/gallery/photo_1_lawn.jpg', alt: 'Sportis Community auf dem Rasen' },
   { id: 2, src: '/gallery/photo_2_match_trees.jpg', alt: 'Fußballmatch vor Backsteingebäude' },
   { id: 3, src: '/gallery/photo_4_goal.jpg', alt: 'Sportis Spieler am Tor' },
   { id: 4, src: '/gallery/photo_7_jerseys.png', alt: 'Sportis Trikots #6, #22, #9' },
   { id: 5, src: '/gallery/picture5_tournament_sunset.jpg', alt: 'Sportis Final Football Tournament Sunset' },
   { id: 6, src: '/gallery/photo_9_spikeball.jpg', alt: 'Spikeball auf dem Rasen' },
-  { id: 7, src: '/gallery/photo_10_cali.jpg', alt: 'Cali Park Altona Meetup' },
-  { id: 8, src: '/gallery/photo_6_pitch_banner.jpg', alt: 'Kunstrasenplatz mit Willkommen-Banner' },
-  { id: 9, src: '/gallery/picture3_campus_match.jpg', alt: 'Sportis Campus Football Game' },
-  { id: 10, src: '/gallery/photo_3_graffiti.jpg', alt: 'Match vor Graffiti-Container' },
 ]
 
 export default function Landing() {
