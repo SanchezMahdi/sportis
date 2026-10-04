@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Facebook, Instagram, Twitter, Linkedin, Mail, MapPin } from 'lucide-react'
+import { Facebook, Instagram, Twitter, Linkedin } from 'lucide-react'
 
 function TikTokIcon({ className = "w-4 h-4" }) {
   return (
@@ -23,15 +23,19 @@ export default function FigmaFooter() {
 
   return (
     <footer className="bg-white border-t border-gray-100 text-gray-600 font-['Inter',sans-serif]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 lg:gap-14 pb-14 border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-16 pb-12">
+        
+        {/* Desktop 3-column layout */}
+        <div className="hidden md:grid md:grid-cols-12 gap-10 lg:gap-14 pb-14 border-b border-gray-100">
           
           {/* Col 1: Logo, Slogan & PageSpeed */}
           <div className="md:col-span-5 flex flex-col items-start gap-4">
             <Link to="/" className="inline-block group">
-              <span className="font-['Inter',sans-serif] text-2xl font-black tracking-tight text-gray-950 group-hover:text-[#5B3FE9] transition-colors select-none">
-                Sportis
-              </span>
+              <img 
+                src="/figma/brand_sportis.png" 
+                alt="Sportis" 
+                className="h-7 w-auto object-contain" 
+              />
             </Link>
             
             <div className="space-y-1">
@@ -103,6 +107,8 @@ export default function FigmaFooter() {
               <h3 className="text-gray-900 font-bold text-base mb-4">Contact us</h3>
               <p className="text-sm leading-relaxed text-gray-500 mb-6 max-w-sm">
                 We're here to help! Reach out, join a session, or become part of the Sportis community.
+                <br />
+                <span className="text-gray-900 font-medium">+923183561921</span>
               </p>
             </div>
 
@@ -150,10 +156,81 @@ export default function FigmaFooter() {
 
         </div>
 
-        {/* Bottom copyright line & Legal Links */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+        {/* Mobile Layout matching Homepage.png 1:1 */}
+        <div className="md:hidden flex flex-col gap-6 max-w-md mx-auto">
+          <div>
+            <h3 className="text-gray-900 font-bold text-xl mb-3">Contact us</h3>
+            <p className="text-[15px] leading-relaxed text-gray-500 mb-1">
+              We're here to help! Reach out, join a session, or become part of the Sportis community.
+            </p>
+            <p className="text-[15px] text-gray-600 font-medium mt-1">
+              +923183561921
+            </p>
+          </div>
+
+          <div className="flex flex-col items-end text-right">
+            <p className="text-xs font-semibold text-gray-600">Meet. Play. Connect.</p>
+            <p className="text-xs text-gray-400">Find your people through sport.</p>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            {/* Social Icons */}
+            <div className="flex items-center gap-2.5">
+              <a 
+                href="https://facebook.com" 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors"
+                aria-label="Facebook"
+              >
+                <Facebook className="w-4 h-4 fill-current" />
+              </a>
+              <a 
+                href="https://instagram.com" 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-pink-600 transition-colors"
+                aria-label="Instagram"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+              <a 
+                href="https://twitter.com" 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-black transition-colors"
+                aria-label="Twitter"
+              >
+                <Twitter className="w-4 h-4 fill-current" />
+              </a>
+              <a 
+                href="https://linkedin.com" 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-9 h-9 rounded-full bg-white border border-gray-200/80 shadow-2xs flex items-center justify-center text-gray-700 hover:text-blue-700 transition-colors"
+                aria-label="LinkedIn"
+              >
+                <Linkedin className="w-4 h-4 fill-current" />
+              </a>
+            </div>
+
+            {/* PageSpeed Badge */}
+            <img 
+              src="/figma/pagespeed.png" 
+              alt="Google PageSpeed 100" 
+              className="h-8 w-auto object-contain rounded border border-gray-200/60 shadow-2xs" 
+            />
+          </div>
+
+          <div className="pt-2 text-xs text-gray-400">
+            <p>© 2025 Copyright by IK Developers. All rights reserved.</p>
+          </div>
+        </div>
+
+        {/* Bottom copyright line & Legal Links (Desktop) */}
+        <div className="hidden md:flex pt-8 flex-row items-center justify-between gap-4 text-xs text-gray-400">
           <p>© 2026 Sportis. All rights reserved. Alle Rechte vorbehalten.</p>
-          <div className="flex items-center gap-4 sm:gap-6 text-xs text-gray-500 font-medium">
+          <div className="flex items-center gap-6 text-xs text-gray-500 font-medium">
             <Link to="/impressum" className="hover:text-gray-900 transition-colors">
               Impressum
             </Link>

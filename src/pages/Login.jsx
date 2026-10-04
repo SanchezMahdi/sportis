@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { EyeOff, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -11,8 +11,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const { signIn, signUp } = useAuth()
+  const { user, signIn, signUp } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user) {
+      navigate('/sessions', { replace: true })
+    }
+  }, [user, navigate])
 
   const [formData, setFormData] = useState({
     username: '',
@@ -49,14 +55,14 @@ export default function Login() {
       if (isLoginMode) {
         await signIn(formData.email, formData.password)
         toast.success('Willkommen zurück!')
-        navigate('/profil')
+        navigate('/sessions')
       } else {
         const result = await signUp(formData.email, formData.password, {
           name: formData.username,
         })
         if (result.session) {
           toast.success('Konto erfolgreich erstellt! Willkommen bei Sportis! 🎉')
-          navigate('/profil')
+          navigate('/sessions')
         } else {
           toast.success('Konto erstellt! Bitte prüfe deine E-Mail für die Bestätigung.')
           setIsLoginMode(true)
@@ -99,7 +105,7 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + '/profil',
+          redirectTo: window.location.origin + '/sessions',
         },
       })
       if (error) throw error

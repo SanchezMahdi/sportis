@@ -112,7 +112,7 @@ export default function Landing() {
     try {
       await signIn(mobileEmail, mobilePassword)
       toast.success('Willkommen zurück!')
-      navigate('/profil')
+      navigate('/sessions')
     } catch (err) {
       console.error(err)
       const msg = err?.message || ''
@@ -131,7 +131,7 @@ export default function Landing() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin + '/profil',
+          redirectTo: window.location.origin + '/sessions',
         },
       })
       if (error) throw error

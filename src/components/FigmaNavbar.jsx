@@ -41,10 +41,12 @@ export default function FigmaNavbar() {
         <div className="flex items-center justify-between h-20">
           
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center group">
-            <span className="font-['Inter',sans-serif] text-2xl sm:text-[28px] font-black tracking-tight text-gray-950 group-hover:text-[#5B3FE9] transition-colors select-none">
-              Sportis
-            </span>
+          <Link to="/" className="flex items-center group select-none">
+            <img 
+              src="/figma/brand_sportis.png" 
+              alt="Sportis" 
+              className="h-7 sm:h-8 w-auto object-contain" 
+            />
           </Link>
 
           {/* Desktop Navigation Links (Consistent across Figma design) */}
