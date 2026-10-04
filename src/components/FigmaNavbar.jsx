@@ -84,12 +84,6 @@ export default function FigmaNavbar() {
             >
               How it Works
             </a>
-            <Link
-              to="/app"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#5B3FE9]/10 text-[#5B3FE9] hover:bg-[#5B3FE9]/20 font-bold text-xs transition-colors shadow-2xs"
-            >
-              <span>📱 iPhone App</span>
-            </Link>
           </nav>
 
           {/* Right Action */}
@@ -175,13 +169,6 @@ export default function FigmaNavbar() {
             >
               How it Works
             </a>
-            <Link
-              to="/app"
-              onClick={() => setMobileOpen(false)}
-              className="text-base font-bold text-[#5B3FE9] flex items-center gap-2"
-            >
-              <span>📱 iPhone App</span>
-            </Link>
             <div className="pt-4 border-t border-gray-100 flex flex-col gap-3">
               {user ? (
                 <>
