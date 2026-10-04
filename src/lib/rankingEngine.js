@@ -19,6 +19,7 @@ export function calculateRankingScore(user) {
   if (!user) return 0
 
   const mvpScore = (user.mvp_count || 0) * 25
+  const highFiveScore = (user.high_fives_received || 0) * 15
   // Standardmäßig 100% Zuverlässigkeit ab heute (50 war der alte Platzhalter-Default)
   const reliabilityScore = (user.reliability_score === 50 || user.reliability_score === undefined || user.reliability_score === null)
     ? 100
