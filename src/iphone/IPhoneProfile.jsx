@@ -27,7 +27,7 @@ export default function IPhoneProfile({ onNavigateLogin, onNavigateSetup }) {
 
   const toggleNotifications = () => {
     setNotificationsAllowed(!notificationsAllowed)
-    toast(notificationsAllowed ? 'Benachrichtigungen deaktiviert' : 'Benachrichtigungen aktiviert 🔔')
+    toast(notificationsAllowed ? 'Benachrichtigungen deaktiviert' : 'Benachrichtigungen aktiviert')
   }
 
   return (

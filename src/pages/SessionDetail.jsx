@@ -34,6 +34,7 @@ import {
   toSkillLabel,
   toSportDbValue,
   toSportLabel,
+  resolveSessionSportInfo,
 } from '../lib/constants'
 import DOMPurify from 'dompurify'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -884,9 +885,10 @@ export default function SessionDetail() {
 
   const inputClass = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#2F80ED] focus:ring-1 focus:ring-[#2F80ED] transition-colors'
 
-  const sportLabel = toSportLabel(session.sport)
+  const sportInfo = resolveSessionSportInfo(session)
+  const sportLabel = sportInfo.label
   const skillLabel = toSkillLabel(session.skill_level)
-  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
+  const emoji = sportInfo.emoji
   const skillColorClass = SKILL_COLORS[skillLabel] || 'bg-gray-500'
 
   let formattedDate = ''
@@ -1068,16 +1070,29 @@ export default function SessionDetail() {
         <div className="lg:col-span-2 flex flex-col gap-6">
           {/* Session header card */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8 overflow-hidden">
-            {/* Uploaded session banner if available */}
-            {session.imageUrl && (
-              <div className="w-full h-52 sm:h-72 rounded-2xl overflow-hidden mb-6 bg-gray-50 border border-gray-100 shadow-xs">
+            {/* Session Banner: user uploaded or matching sport visual */}
+            <div className="w-full h-52 sm:h-72 rounded-2xl overflow-hidden mb-6 bg-gradient-to-br from-blue-50/70 via-gray-50 to-orange-50/40 border border-gray-100 shadow-xs relative flex items-center justify-center">
+              {session.imageUrl ? (
                 <img
                   src={session.imageUrl}
                   alt={session.title}
                   className="w-full h-full object-cover"
                 />
-              </div>
-            )}
+              ) : (
+                <div className="w-full h-full relative overflow-hidden flex items-center justify-center bg-gray-50/60">
+                  <img
+                    src={sportInfo.image || sportInfo.illustration}
+                    alt={session.title}
+                    className={`w-full h-full ${sportInfo.image && !sportInfo.image.endsWith('.png') ? 'object-cover' : 'object-contain max-h-56 p-4 mix-blend-multiply'}`}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3.5 py-1.5 rounded-full shadow-sm text-gray-900 font-bold text-sm">
+                    <span className="text-base">{sportInfo.emoji}</span>
+                    <span>{sportInfo.label}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Sport + badges */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -1332,7 +1347,7 @@ export default function SessionDetail() {
                   </div>
                 ) : (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 text-center">
-                    <p className="text-emerald-700 font-bold text-sm">Du nimmst teil 🎉</p>
+                    <p className="text-emerald-700 font-bold text-sm">Du nimmst teil</p>
                   </div>
                 )}
                 <button
@@ -1548,10 +1563,10 @@ export default function SessionDetail() {
                                 }`}
                               >
                                 {attendance.notes === 'pünktlich'
-                                  ? '🟢 Pünktlich'
+                                  ? 'Pünktlich'
                                   : attendance.notes === 'zu spät'
-                                  ? '🟡 Zu spät'
-                                  : '🔴 Nicht erschienen'}
+                                  ? 'Zu spät'
+                                  : 'Nicht erschienen'}
                               </span>
                             )}
                           </div>
@@ -1600,10 +1615,10 @@ export default function SessionDetail() {
                                 }`}
                               >
                                 {attendance.notes === 'pünktlich'
-                                  ? '🟢 Pünktlich'
+                                  ? 'Pünktlich'
                                   : attendance.notes === 'zu spät'
-                                  ? '🟡 Zu spät'
-                                  : '🔴 Nicht da'}
+                                  ? 'Zu spät'
+                                  : 'Nicht da'}
                               </span>
                             ) : (
                               <span className="text-[10px] text-gray-400 italic">Noch offen</span>
@@ -1622,7 +1637,7 @@ export default function SessionDetail() {
                               }`}
                               title="Pünktlich (100% Zuverlässigkeit)"
                             >
-                              🟢 Pünktlich
+                              Pünktlich
                             </button>
                             <button
                               type="button"
@@ -1635,7 +1650,7 @@ export default function SessionDetail() {
                               }`}
                               title="Zu spät (70% Zuverlässigkeit)"
                             >
-                              🟡 Zu spät
+                              Zu spät
                             </button>
                             <button
                               type="button"
@@ -1648,7 +1663,7 @@ export default function SessionDetail() {
                               }`}
                               title="Nicht erschienen (0% Zuverlässigkeit)"
                             >
-                              🔴 Nicht da
+                              Nicht da
                             </button>
                           </div>
                         </div>

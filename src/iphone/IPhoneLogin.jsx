@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 
 export default function IPhoneLogin({ onSuccess, onNavigateSetup }) {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, devLogin } = useAuth()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,7 +26,7 @@ export default function IPhoneLogin({ onSuccess, onNavigateSetup }) {
         if (onNavigateSetup) onNavigateSetup()
       } else {
         await signIn(email, password)
-        toast.success('Erfolgreich angemeldet! 👋')
+        toast.success('Erfolgreich angemeldet!')
         if (onSuccess) onSuccess()
       }
     } catch (err) {
@@ -37,7 +37,10 @@ export default function IPhoneLogin({ onSuccess, onNavigateSetup }) {
   }
 
   const handleDemoLogin = () => {
-    toast.success('Als Demo-Nutzer angemeldet! ⚽')
+    if (devLogin) {
+      devLogin('Sportler')
+    }
+    toast.success('Als Demo-Nutzer angemeldet!')
     if (onSuccess) onSuccess()
   }
 

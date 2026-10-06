@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { extractSessionImage } from '../lib/imageUtils'
+import { resolveSessionSportInfo, getSportIllustration } from '../lib/constants'
 
 // Pixel-accurate badge icons for mobile matching Figma node 172-1768
 function CalendarBadgeIcon({ className = "w-4 h-4 text-gray-900" }) {
@@ -36,26 +37,6 @@ function ClockBadgeIcon({ className = "w-4 h-4 text-gray-900" }) {
       <polyline points="12 6.5 12 12 15 14" strokeWidth="2.2" />
     </svg>
   )
-}
-
-const getSportIllustration = (sport) => {
-  const s = (sport || '').toLowerCase()
-  if (s.includes('fuss') || s.includes('foot') || s.includes('soccer')) {
-    return '/figma/sports_soccer.png'
-  }
-  if (s.includes('basket')) {
-    return '/figma/sports_basketball.png'
-  }
-  if (s.includes('skat')) {
-    return '/figma/sports_skating.png'
-  }
-  if (s.includes('reit') || s.includes('horse') || s.includes('pferd')) {
-    return '/figma/sports_horse.png'
-  }
-  if (s.includes('bar') || s.includes('karaoke')) {
-    return '/figma/session_bar_photo.png'
-  }
-  return '/figma/sports_soccer.png'
 }
 
 const formatDate = (dateStr, scheduledAt) => {
@@ -181,7 +162,7 @@ export default function Sessions() {
               { session_id: session.realSessionId, user_id: user.id, waitlist: false, attended: true },
               { onConflict: 'session_id,user_id' }
             )
-          toast.success('Erfolgreich beigetreten! 🎉')
+          toast.success('Erfolgreich beigetreten!')
         }
         fetchRealSessions()
       } catch (err) {
@@ -196,7 +177,7 @@ export default function Sessions() {
         toast('Du hast die Session verlassen')
       } else {
         next.add(session.id)
-        toast.success('Erfolgreich beigetreten! 🎉')
+        toast.success('Erfolgreich beigetreten!')
       }
       setJoinedIds(next)
     }
@@ -205,23 +186,22 @@ export default function Sessions() {
   // Map DB sessions
   const mappedDbSessions = dbSessions.map((s) => {
     const isJoined = s.session_participants?.some((p) => p.user_id === user?.id)
-    const normalized = normalizeSport(s.sport)
-    const isBar = normalized === 'Bar'
+    const sportInfo = resolveSessionSportInfo(s)
     const { imageUrl } = extractSessionImage(s.description)
 
     return {
       id: s.id,
       realSessionId: s.id,
       sport: s.sport,
-      sportDisplay: normalized,
+      sportDisplay: sportInfo.label,
       title: s.title,
       timeDisplay: formatTime(s.time, s.scheduled_at),
       locationDisplay: s.location || s.location_name || s.address || 'Hamburg',
       spotsDisplay: `${s.session_participants?.length || 1}/${s.max_players || 10}`,
       dateDisplay: formatDate(s.date, s.scheduled_at),
       imageUrl: imageUrl || null,
-      illustration: imageUrl || getSportIllustration(s.sport),
-      isBar: isBar && !imageUrl,
+      illustration: imageUrl || sportInfo.illustration,
+      isBar: sportInfo.isBar && !imageUrl,
       isJoined,
     }
   })
@@ -358,8 +338,8 @@ export default function Sessions() {
           {/* 5. Mobile Match Cards (Horizontal Layout matching Figma 172-1768) */}
           {mobileSessions.length === 0 ? (
             <div className="bg-[#F6F9FE] rounded-[32px] border border-gray-100/90 shadow-[0_10px_35px_rgba(0,0,0,0.04)] p-8 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 rounded-2xl bg-white shadow-xs flex items-center justify-center mb-4 border border-gray-100">
-                <span className="text-3xl">🏃</span>
+              <div className="w-16 h-16 rounded-2xl bg-white shadow-xs flex items-center justify-center mb-4 border border-gray-100 overflow-hidden p-2">
+                <img src="/figma/sports_general.png" alt="Sport" className="w-full h-full object-contain" />
               </div>
               <h3 className="text-lg font-bold text-gray-950 mb-1">Keine Sessions vorhanden</h3>
               <p className="text-xs text-gray-500 mb-5 max-w-xs leading-relaxed">
@@ -388,7 +368,7 @@ export default function Sessions() {
                     {/* Left: Sport Illustration */}
                     <div className="w-[125px] h-[130px] flex items-center justify-center shrink-0">
                       <img
-                        src={session.illustration || getSportIllustration(session.sport)}
+                        src={session.illustration || getSportIllustration(session)}
                         alt={session.title || session.sport || 'Session'}
                         className="w-full h-full object-contain mix-blend-multiply select-none group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
@@ -595,7 +575,7 @@ export default function Sessions() {
                         </div>
                       ) : (
                         <img
-                          src={s.illustration || getSportIllustration(s.sport)}
+                          src={s.illustration || getSportIllustration(s)}
                           alt={s.title}
                           className="max-h-40 sm:max-h-44 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
                         />

@@ -81,7 +81,7 @@ export default function SessionErstellen() {
       })
       setSessionImage({ file, blob, dataUrl })
       setSessionImagePreview(dataUrl)
-      toast.success('Bild ausgewählt! 📸')
+      toast.success('Bild ausgewählt!')
     } catch (err) {
       console.error(err)
       toast.error('Bild konnte nicht verarbeitet werden.')
@@ -166,8 +166,7 @@ export default function SessionErstellen() {
       }
 
       const dbSport = toSportDbValue(sport)
-      const isCustomSport = dbSport === 'other'
-      const customSportNote = isCustomSport ? ` | Aktivität: ${sport.trim()}` : ''
+      const customSportNote = ` | Aktivität: ${sport.trim()}`
       const rawDescription = `Universität: ${university || 'Sportis Community'}${customSportNote}`
       const finalDescription = uploadedImageUrl
         ? embedSessionImage(rawDescription, uploadedImageUrl)
@@ -204,7 +203,7 @@ export default function SessionErstellen() {
         )
       }
 
-      toast.success('Session erfolgreich erstellt! 🎉')
+      toast.success('Session erfolgreich erstellt!')
       navigate('/sessions')
     } catch (err) {
       console.error(err)
@@ -313,7 +312,7 @@ export default function SessionErstellen() {
               </label>
               <input
                 type="text"
-                placeholder="Type here"
+                placeholder="Titel der Session (z.B. Spaziergang, Fußball...)"
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value)
@@ -501,14 +500,14 @@ export default function SessionErstellen() {
                 </div>
               </div>
 
-              {/* Sportart / Aktivität (Manuelle freie Eingabe) */}
-              <div className="flex flex-col gap-1.5">
+              {/* Sportart / Aktivität (Manuelle freie Eingabe + Schnellwahl) */}
+              <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-gray-800">
-                  Sportart / Aktivität (Freie Eingabe)
+                  Sportart / Aktivität (Freie Eingabe oder Schnellwahl)
                 </label>
                 <input
                   type="text"
-                  placeholder="z.B. Fussball, Basketball, Chillen..."
+                  placeholder="z.B. Spazieren, Laufen, Fussball, Basketball..."
                   value={sport}
                   onChange={(e) => {
                     setSport(e.target.value)
@@ -520,13 +519,43 @@ export default function SessionErstellen() {
                       : 'border-gray-300 focus:border-[#7C3AED] focus:ring-1 focus:ring-[#7C3AED]'
                   }`}
                 />
-                {sportError ? (
+
+                {/* Quick-select pills for mobile convenience */}
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {[
+                    { label: 'Spazieren', val: 'Spazieren' },
+                    { label: 'Laufen', val: 'Laufen' },
+                    { label: 'Fußball', val: 'Fußball' },
+                    { label: 'Basketball', val: 'Basketball' },
+                    { label: 'Tennis', val: 'Tennis' },
+                    { label: 'Tischtennis', val: 'Tischtennis' },
+                    { label: 'Volleyball', val: 'Volleyball' },
+                    { label: 'Fitness', val: 'Fitness' },
+                    { label: 'Yoga', val: 'Yoga' },
+                    { label: 'Radfahren', val: 'Radfahren' },
+                    { label: 'Chillen', val: 'Chillen' },
+                  ].map((item) => (
+                    <button
+                      key={item.val}
+                      type="button"
+                      onClick={() => {
+                        setSport(item.val)
+                        if (sportError) setSportError(false)
+                      }}
+                      className={`text-xs font-medium px-2.5 py-1 rounded-full transition-all border ${
+                        sport.toLowerCase() === item.val.toLowerCase()
+                          ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-2xs'
+                          : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+
+                {sportError && (
                   <span className="text-[11px] text-red-500 font-medium">
                     Bitte gib eine Sportart oder Aktivität ein
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-gray-400">
-                    Assistive Text
                   </span>
                 )}
               </div>

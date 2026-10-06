@@ -5,7 +5,7 @@ import { format, parseISO, isFuture, isPast } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { isMissingSupabaseSchema, supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { SPORT_EMOJIS, toSportLabel } from '../lib/constants'
+import { resolveSessionSportInfo } from '../lib/constants'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 function TabButton({ active, onClick, children, count }) {
@@ -31,8 +31,7 @@ function SessionRow({ session }) {
     ? format(parseISO(session.date), 'EEE, d. MMM yyyy', { locale: de })
     : ''
   const timeStr = session.time?.slice(0, 5) || ''
-  const sportLabel = toSportLabel(session.sport)
-  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
+  const sportInfo = resolveSessionSportInfo(session)
   const count = session.session_participants?.length ?? 0
 
   return (
@@ -40,7 +39,9 @@ function SessionRow({ session }) {
       to={`/session/${session.id}`}
       className="flex items-center gap-4 p-4 bg-dark rounded-xl border border-white/5 hover:border-white/20 transition-all group"
     >
-      <div className="text-2xl shrink-0">{emoji}</div>
+      <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 overflow-hidden p-1">
+        <img src={sportInfo.illustration} alt={sportInfo.label} className="w-full h-full object-contain" />
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-white font-semibold text-sm truncate">{session.title}</p>

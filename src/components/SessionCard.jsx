@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { Calendar, MapPin, Users, Zap, Clock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { SPORT_EMOJIS, SKILL_COLORS, toSportLabel, toSkillLabel } from '../lib/constants'
+import { SKILL_COLORS, toSkillLabel, resolveSessionSportInfo } from '../lib/constants'
+import { extractSessionImage } from '../lib/imageUtils'
 import {
   SoccerFieldPlaceholder,
   BasketballCourtPlaceholder,
@@ -30,15 +31,6 @@ const SPORT_PLACEHOLDERS = {
   Tischtennis: PingPongPlaceholder,
 }
 
-// Hochwertige Sport-Bilder - LOKALE PFADE
-const SPORT_IMAGES = {
-  Fußball: '/sports/hallen_futsal.png',
-  Basketball: '/sports/baskettball.png',
-  Tennis: '/sports/tennis.png',
-  Volleyball: '/sports/vollyball.png',
-  Tischtennis: '/sports/tischtenis.png',
-}
-
 export default function SessionCard({ session, currentUserId }) {
   const navigate = useNavigate()
 
@@ -48,12 +40,14 @@ export default function SessionCard({ session, currentUserId }) {
     (p) => p.user_id === currentUserId
   )
 
-  const sportLabel = toSportLabel(session.sport)
+  const sportInfo = resolveSessionSportInfo(session)
+  const { imageUrl } = extractSessionImage(session.description)
+  const sportLabel = sportInfo.label
   const skillLabel = toSkillLabel(session.skill_level)
-  const emoji = SPORT_EMOJIS[sportLabel] || '🏃'
+  const emoji = sportInfo.emoji
   const skillColorClass = SKILL_COLORS[skillLabel] || 'bg-gray-500'
   const PlaceholderComponent = SPORT_PLACEHOLDERS[sportLabel]
-  const sportImage = SPORT_IMAGES[sportLabel]
+  const sportImage = imageUrl || sportInfo.image || sportInfo.illustration
 
   let formattedDate = ''
   try {

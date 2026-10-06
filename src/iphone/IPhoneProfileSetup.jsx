@@ -22,7 +22,7 @@ export default function IPhoneProfileSetup({ onComplete }) {
           city: 'Hamburg',
         })
       }
-      toast.success('Profil eingerichtet! Willkommen bei Sportis 🚀')
+      toast.success('Profil eingerichtet! Willkommen bei Sportis')
       if (onComplete) onComplete()
     } catch (err) {
       console.error(err)

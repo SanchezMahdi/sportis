@@ -3,6 +3,8 @@ import { MapPin, Calendar, Clock, ArrowRight, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { resolveSessionSportInfo } from '../lib/constants'
+import { extractSessionImage } from '../lib/imageUtils'
 
 export default function IPhoneHome({ onNavigateCreate, onSelectSession }) {
   const { user } = useAuth()
@@ -171,6 +173,9 @@ export default function IPhoneHome({ onNavigateCreate, onSelectSession }) {
         {/* Real Supabase Database sessions */}
         {dbSessions.map((s) => {
           const isJoined = joinedSessions.has(s.id)
+          const sportInfo = resolveSessionSportInfo(s)
+          const { imageUrl } = extractSessionImage(s.description)
+          const displayImage = imageUrl || sportInfo.illustration
 
           return (
             <div
@@ -178,11 +183,11 @@ export default function IPhoneHome({ onNavigateCreate, onSelectSession }) {
               onClick={() => onSelectSession && onSelectSession(s.id)}
               className="bg-white rounded-3xl p-4 border border-blue-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-md transition-all flex items-center justify-between cursor-pointer group"
             >
-              <div className="w-24 h-24 shrink-0 flex items-center justify-center bg-blue-50/50 rounded-2xl overflow-hidden">
+              <div className="w-24 h-24 shrink-0 flex items-center justify-center bg-blue-50/50 rounded-2xl overflow-hidden p-2">
                 <img
-                  src="/figma/sports_soccer.png"
-                  alt={s.sport}
-                  className="max-h-20 w-auto object-contain group-hover:scale-105 transition-transform"
+                  src={displayImage}
+                  alt={sportInfo.label}
+                  className="max-h-20 w-auto object-contain mix-blend-multiply group-hover:scale-105 transition-transform"
                 />
               </div>
 
@@ -190,7 +195,7 @@ export default function IPhoneHome({ onNavigateCreate, onSelectSession }) {
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                   <h4 className="text-base font-bold text-gray-950 leading-tight">
-                    {s.sport || 'Session'}
+                    {sportInfo.label}
                   </h4>
                 </div>
                 <p className="text-xs text-gray-600 font-medium mt-0.5 line-clamp-1">

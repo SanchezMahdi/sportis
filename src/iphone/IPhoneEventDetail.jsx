@@ -8,7 +8,7 @@ export default function IPhoneEventDetail({ onBack }) {
 
   const handleBookmark = () => {
     setBookmarked(!bookmarked)
-    toast(bookmarked ? 'Lesezeichen entfernt' : 'Event gespeichert! 🔖')
+    toast(bookmarked ? 'Lesezeichen entfernt' : 'Event gespeichert!')
   }
 
   const handleInvite = () => {
@@ -17,7 +17,7 @@ export default function IPhoneEventDetail({ onBack }) {
   }
 
   const handleBuyTicket = () => {
-    toast.success('Ticket erfolgreich gebucht! 🎉 Wir freuen uns auf dich!')
+    toast.success('Ticket erfolgreich gebucht! Wir freuen uns auf dich!')
   }
 
   return (
